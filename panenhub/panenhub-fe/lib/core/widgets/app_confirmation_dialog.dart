@@ -44,22 +44,82 @@ class AppConfirmationDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accentColor = isDanger ? AppColors.error : AppColors.primary;
+    final accentBg = isDanger ? AppColors.errorLight : AppColors.primarySurface;
+
     return AlertDialog(
-      title: Text(title, style: AppTextStyles.titleMedium),
-      content: Text(message, style: AppTextStyles.bodyMedium),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(cancelLabel, style: const TextStyle(color: AppColors.textSecondary)),
-        ),
-        ElevatedButton(
-          onPressed: onConfirm,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: isDanger ? AppColors.error : AppColors.primary,
-            foregroundColor: Colors.white,
-            elevation: 0,
+      contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      actionsPadding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+      title: Column(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: accentBg,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isDanger ? Icons.warning_amber_rounded : Icons.info_outline_rounded,
+              color: accentColor,
+              size: 24,
+            ),
           ),
-          child: Text(confirmLabel),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: AppTextStyles.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+      content: Text(
+        message,
+        style: AppTextStyles.bodyMedium.copyWith(
+          color: AppColors.textSecondary,
+          height: 1.5,
+        ),
+        textAlign: TextAlign.center,
+      ),
+      actionsAlignment: MainAxisAlignment.center,
+      actions: [
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 44,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textSecondary,
+                    side: const BorderSide(color: AppColors.border),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(cancelLabel),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: SizedBox(
+                height: 44,
+                child: ElevatedButton(
+                  onPressed: onConfirm,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accentColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(confirmLabel),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );

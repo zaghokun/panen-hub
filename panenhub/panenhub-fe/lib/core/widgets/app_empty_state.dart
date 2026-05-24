@@ -23,32 +23,57 @@ class AppEmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 80,
-              height: 80,
+              width: 88,
+              height: 88,
               decoration: BoxDecoration(
-                color: AppColors.primarySurface,
-                borderRadius: BorderRadius.circular(20),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.primarySurface,
+                    AppColors.primaryLight.withValues(alpha: 0.3),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(24),
               ),
               child: Icon(icon, size: 40, color: AppColors.primary),
             ),
-            const SizedBox(height: 20),
-            Text(title, style: AppTextStyles.titleMedium, textAlign: TextAlign.center),
-            const SizedBox(height: 8),
+            const SizedBox(height: 24),
+            Text(
+              title,
+              style: AppTextStyles.titleMedium.copyWith(
+                letterSpacing: -0.2,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
             Text(
               description,
-              style: AppTextStyles.bodySmall,
+              style: AppTextStyles.bodySmall.copyWith(
+                fontSize: 13,
+                height: 1.6,
+                color: AppColors.textHint,
+              ),
               textAlign: TextAlign.center,
             ),
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 20),
-              TextButton(
+              const SizedBox(height: 24),
+              TextButton.icon(
                 onPressed: onAction,
-                child: Text(actionLabel!),
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: Text(actionLabel!),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
               ),
             ],
           ],

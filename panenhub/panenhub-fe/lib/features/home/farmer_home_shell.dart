@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/app_providers.dart';
 import '../farmer/farmer_screens.dart';
 import '../customer/order_screens.dart';
+import '../customer/commodity_screens.dart';
 import '../admin/admin_screens.dart';
 
 class FarmerHomeShell extends ConsumerWidget {
@@ -14,7 +15,10 @@ class FarmerHomeShell extends ConsumerWidget {
 
     final screens = [
       FarmerDashboardScreen(onAddCommodity: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CreateCommodityScreen(onSuccess: () => Navigator.of(context).pop())))),
-      FarmerCommodityListScreen(onAdd: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CreateCommodityScreen(onSuccess: () => Navigator.of(context).pop())))),
+      FarmerCommodityListScreen(
+        onAdd: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CreateCommodityScreen(onSuccess: () => Navigator.of(context).pop()))),
+        onCommodityTap: (id) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CommodityDetailScreen(commodityId: id, onPreOrder: (_) {}))),
+      ),
       FarmerOrderListScreen(onOrderTap: (id) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: id)))),
       FarmerWalletScreen(onWithdraw: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => WithdrawalRequestScreen(onSuccess: () => Navigator.of(context).pop())))),
       ProfileScreen(onLogout: () => Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false)),

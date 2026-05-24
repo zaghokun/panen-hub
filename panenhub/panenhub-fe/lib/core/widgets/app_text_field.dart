@@ -44,21 +44,58 @@ class AppTextField extends StatefulWidget {
 
 class _AppTextFieldState extends State<AppTextField> {
   bool _obscureText = true;
+  late FocusNode _effectiveFocusNode;
+  bool _isFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _effectiveFocusNode = widget.focusNode ?? FocusNode();
+    _effectiveFocusNode.addListener(_onFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant AppTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusNode != oldWidget.focusNode) {
+      _effectiveFocusNode.removeListener(_onFocusChange);
+      if (oldWidget.focusNode == null) {
+        _effectiveFocusNode.dispose();
+      }
+      _effectiveFocusNode = widget.focusNode ?? FocusNode();
+      _effectiveFocusNode.addListener(_onFocusChange);
+    }
+  }
+
+  void _onFocusChange() {
+    setState(() => _isFocused = _effectiveFocusNode.hasFocus);
+  }
+
+  @override
+  void dispose() {
+    _effectiveFocusNode.removeListener(_onFocusChange);
+    if (widget.focusNode == null) {
+      _effectiveFocusNode.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          widget.label,
-          style: const TextStyle(
+        AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 200),
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: AppColors.textPrimary,
+            color: _isFocused ? AppColors.primary : AppColors.textPrimary,
+            letterSpacing: 0.1,
           ),
+          child: Text(widget.label),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         TextFormField(
           controller: widget.controller,
           validator: widget.validator,
@@ -69,20 +106,25 @@ class _AppTextFieldState extends State<AppTextField> {
           maxLength: widget.maxLength,
           onChanged: widget.onChanged,
           onTap: widget.onTap,
-          focusNode: widget.focusNode,
+          focusNode: _effectiveFocusNode,
           textInputAction: widget.textInputAction,
           style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
+          cursorColor: AppColors.primary,
           decoration: InputDecoration(
             hintText: widget.hint,
             prefixIcon: widget.prefixIcon != null
-                ? Icon(widget.prefixIcon, size: 20, color: AppColors.textSecondary)
+                ? Icon(
+                    widget.prefixIcon,
+                    size: 20,
+                    color: _isFocused ? AppColors.primary : AppColors.textSecondary,
+                  )
                 : null,
             suffixIcon: widget.isPassword
                 ? IconButton(
                     icon: Icon(
                       _obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                       size: 20,
-                      color: AppColors.textSecondary,
+                      color: _isFocused ? AppColors.primary : AppColors.textSecondary,
                     ),
                     onPressed: () => setState(() => _obscureText = !_obscureText),
                   )
