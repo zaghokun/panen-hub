@@ -245,27 +245,29 @@ class OrderDetailScreen extends ConsumerWidget {
               _DetailRow('Escrow', 'Dana ditahan aman'),
             ]),
             const SizedBox(height: 20),
-            // CTAs
-            if (o.status == OrderStatus.shipped || o.status == OrderStatus.delivered) ...[
-              AppButton(label: 'Konfirmasi Penerimaan', icon: Icons.check_circle_outline, onPressed: () async {
-                final accepted = await AppConfirmationDialog.show(context, title: 'Konfirmasi Penerimaan', message: 'Apakah barang sudah diterima dan kondisi sesuai?');
-                if (accepted == true) {
-                  ref.read(orderListProvider.notifier).updateStatus(o.id, OrderStatus.completed);
-                  if (context.mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pesanan diterima. Dana akan dicairkan ke petani.'), backgroundColor: AppColors.success)); Navigator.of(context).pop(); }
-                }
-              }),
-              const SizedBox(height: 8),
-              AppButton(label: 'Barang Tidak Sesuai', isOutlined: true, isDanger: true, icon: Icons.report_problem_outlined, onPressed: onDispute),
-            ],
-            if (o.status == OrderStatus.completed) ...[
-              AppButton(label: 'Beri Ulasan', icon: Icons.star_outline, onPressed: onReview),
-            ],
-            if (o.status == OrderStatus.waitingPayment) ...[
-              AppButton(label: 'Bayar Sekarang', icon: Icons.payment, onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Simulasi pembayaran berhasil!'), backgroundColor: AppColors.success));
-                ref.read(orderListProvider.notifier).updateStatus(o.id, OrderStatus.paidEscrow);
-                Navigator.of(context).pop();
-              }),
+            // CTAs — only show customer-specific actions for customers
+            if (ref.read(authProvider).role == UserRole.customer) ...[
+              if (o.status == OrderStatus.shipped || o.status == OrderStatus.delivered) ...[
+                AppButton(label: 'Konfirmasi Penerimaan', icon: Icons.check_circle_outline, onPressed: () async {
+                  final accepted = await AppConfirmationDialog.show(context, title: 'Konfirmasi Penerimaan', message: 'Apakah barang sudah diterima dan kondisi sesuai?');
+                  if (accepted == true) {
+                    ref.read(orderListProvider.notifier).updateStatus(o.id, OrderStatus.completed);
+                    if (context.mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pesanan diterima. Dana akan dicairkan ke petani.'), backgroundColor: AppColors.success)); Navigator.of(context).pop(); }
+                  }
+                }),
+                const SizedBox(height: 8),
+                AppButton(label: 'Barang Tidak Sesuai', isOutlined: true, isDanger: true, icon: Icons.report_problem_outlined, onPressed: onDispute),
+              ],
+              if (o.status == OrderStatus.completed) ...[
+                AppButton(label: 'Beri Ulasan', icon: Icons.star_outline, onPressed: onReview),
+              ],
+              if (o.status == OrderStatus.waitingPayment) ...[
+                AppButton(label: 'Bayar Sekarang', icon: Icons.payment, onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Simulasi pembayaran berhasil!'), backgroundColor: AppColors.success));
+                  ref.read(orderListProvider.notifier).updateStatus(o.id, OrderStatus.paidEscrow);
+                  Navigator.of(context).pop();
+                }),
+              ],
             ],
             const SizedBox(height: 32),
           ]),
@@ -377,10 +379,15 @@ class _CreateDisputeScreenState extends State<CreateDisputeScreen> {
           const SizedBox(height: 16),
           Text('Foto Bukti', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
           const SizedBox(height: 8),
-          Container(
-            height: 100, width: double.infinity,
-            decoration: BoxDecoration(border: Border.all(color: AppColors.border, style: BorderStyle.solid), borderRadius: BorderRadius.circular(12)),
-            child: const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.camera_alt_outlined, color: AppColors.textHint, size: 28), SizedBox(height: 4), Text('Tambah Foto Bukti', style: TextStyle(color: AppColors.textHint, fontSize: 12))])),
+          GestureDetector(
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Fitur upload foto akan segera hadir'), backgroundColor: AppColors.info));
+            },
+            child: Container(
+              height: 100, width: double.infinity,
+              decoration: BoxDecoration(border: Border.all(color: AppColors.border, style: BorderStyle.solid), borderRadius: BorderRadius.circular(12)),
+              child: const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.camera_alt_outlined, color: AppColors.textHint, size: 28), SizedBox(height: 4), Text('Tambah Foto Bukti', style: TextStyle(color: AppColors.textHint, fontSize: 12))])),
+            ),
           ),
           const SizedBox(height: 24),
           AppButton(label: 'Kirim Sengketa', isDanger: true, isLoading: _isLoading, onPressed: () async {

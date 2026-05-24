@@ -26,10 +26,52 @@ class AdminDashboardScreen extends ConsumerWidget {
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Dashboard Admin', style: AppTextStyles.headlineMedium),
-            const SizedBox(height: 4),
-            Text('Ringkasan kondisi platform', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
-            const SizedBox(height: 20),
+            // Premium admin header
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.primary, AppColors.primaryDark],
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Dashboard Admin', style: AppTextStyles.headlineMedium.copyWith(color: Colors.white)),
+                    const SizedBox(height: 2),
+                    Text('Ringkasan kondisi platform', style: AppTextStyles.bodySmall.copyWith(color: Colors.white.withValues(alpha: 0.8))),
+                  ]),
+                ]),
+              ]),
+            ),
+            const SizedBox(height: 24),
+            Row(children: [
+              Container(width: 4, height: 20, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
+              const SizedBox(width: 8),
+              Text('Statistik Platform', style: AppTextStyles.titleMedium),
+            ]),
+            const SizedBox(height: 14),
             _AdminStatCard(icon: Icons.person_add, label: 'Menunggu Verifikasi', value: '2', color: AppColors.warning),
             const SizedBox(height: 10),
             _AdminStatCard(icon: Icons.report_problem, label: 'Sengketa Aktif', value: '${MockDataSource.disputes.length}', color: AppColors.error),
@@ -53,9 +95,20 @@ class _AdminStatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border.withValues(alpha: 0.5))),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border(left: BorderSide(color: color, width: 3.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       child: Row(children: [
-        Container(width: 44, height: 44, decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: color, size: 22)),
+        Container(width: 44, height: 44, decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: color, size: 22)),
         const SizedBox(width: 14),
         Expanded(child: Text(label, style: AppTextStyles.labelLarge)),
         Text(value, style: AppTextStyles.headlineMedium.copyWith(color: color)),
@@ -90,9 +143,17 @@ class UserVerificationScreen extends ConsumerWidget {
                 ]),
                 const SizedBox(height: 12),
                 Row(children: [
-                  Expanded(child: OutlinedButton(onPressed: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun ditolak'), backgroundColor: AppColors.error)); }, style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error)), child: const Text('Tolak'))),
+                  Expanded(child: OutlinedButton(onPressed: () {
+                    MockDataSource.notifications.removeWhere((n) => n.title.contains(u.name));
+                    ref.invalidate(pendingUsersProvider);
+                    ref.invalidate(notificationListProvider);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun ditolak'), backgroundColor: AppColors.error));
+                  }, style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error)), child: const Text('Tolak'))),
                   const SizedBox(width: 10),
-                  Expanded(child: ElevatedButton(onPressed: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun diverifikasi!'), backgroundColor: AppColors.success)); }, child: const Text('Verifikasi'))),
+                  Expanded(child: ElevatedButton(onPressed: () {
+                    ref.invalidate(pendingUsersProvider);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun diverifikasi!'), backgroundColor: AppColors.success));
+                  }, child: const Text('Verifikasi'))),
                 ]),
               ]),
             );
@@ -140,12 +201,20 @@ class AdminDisputeListScreen extends ConsumerWidget {
                 Row(children: [
                   Expanded(child: OutlinedButton(onPressed: () async {
                     final r = await AppConfirmationDialog.show(context, title: 'Tolak Sengketa', message: 'Dana escrow akan dicairkan ke petani.', isDanger: true);
-                    if (r == true && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sengketa ditolak. Dana dicairkan ke petani.'), backgroundColor: AppColors.success));
+                    if (r == true && context.mounted) {
+                      MockDataSource.disputes.removeWhere((e) => e.id == d.id);
+                      ref.invalidate(disputeListProvider);
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sengketa ditolak. Dana dicairkan ke petani.'), backgroundColor: AppColors.success));
+                    }
                   }, style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error)), child: const Text('Tolak'))),
                   const SizedBox(width: 10),
                   Expanded(child: ElevatedButton(onPressed: () async {
                     final r = await AppConfirmationDialog.show(context, title: 'Setujui Refund', message: 'Dana escrow akan dikembalikan ke pelanggan.');
-                    if (r == true && context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refund disetujui.'), backgroundColor: AppColors.success));
+                    if (r == true && context.mounted) {
+                      MockDataSource.disputes.removeWhere((e) => e.id == d.id);
+                      ref.invalidate(disputeListProvider);
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refund disetujui.'), backgroundColor: AppColors.success));
+                    }
                   }, child: const Text('Refund'))),
                 ]),
               ]),
@@ -185,9 +254,17 @@ class AdminWithdrawalScreen extends ConsumerWidget {
                 Text('a.n. ${w.accountHolderName}', style: AppTextStyles.caption),
                 const SizedBox(height: 12),
                 Row(children: [
-                  Expanded(child: OutlinedButton(onPressed: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pencairan ditolak'), backgroundColor: AppColors.error)); }, style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error)), child: const Text('Tolak'))),
+                  Expanded(child: OutlinedButton(onPressed: () {
+                    MockDataSource.withdrawals.removeWhere((e) => e.id == w.id);
+                    ref.invalidate(withdrawalListProvider);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pencairan ditolak'), backgroundColor: AppColors.error));
+                  }, style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error)), child: const Text('Tolak'))),
                   const SizedBox(width: 10),
-                  Expanded(child: ElevatedButton(onPressed: () { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pencairan disetujui!'), backgroundColor: AppColors.success)); }, child: const Text('Approve'))),
+                  Expanded(child: ElevatedButton(onPressed: () {
+                    MockDataSource.withdrawals.removeWhere((e) => e.id == w.id);
+                    ref.invalidate(withdrawalListProvider);
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pencairan disetujui!'), backgroundColor: AppColors.success));
+                  }, child: const Text('Approve'))),
                 ]),
               ]),
             );
@@ -262,19 +339,24 @@ class NotificationListScreen extends ConsumerWidget {
           if (list.isEmpty) return const AppEmptyState(icon: Icons.notifications_none, title: 'Tidak Ada Notifikasi', description: 'Belum ada notifikasi baru.');
           return ListView.builder(padding: const EdgeInsets.all(20), itemCount: list.length, itemBuilder: (context, i) {
             final n = list[i];
-            return Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: n.isRead ? AppColors.surface : AppColors.primarySurface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border.withValues(alpha: 0.5))),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Icon(n.isRead ? Icons.notifications_none : Icons.notifications, size: 22, color: n.isRead ? AppColors.textSecondary : AppColors.primary),
-                const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(n.title, style: AppTextStyles.labelLarge),
-                  const SizedBox(height: 2),
-                  Text(n.message, style: AppTextStyles.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
-                  Text(DateFormatter.dateTime(n.createdAt), style: AppTextStyles.caption),
-                ])),
-              ]),
+            return GestureDetector(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(n.title), backgroundColor: AppColors.primary));
+              },
+              child: Container(margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: n.isRead ? AppColors.surface : AppColors.primarySurface, borderRadius: BorderRadius.circular(12), border: Border.all(color: AppColors.border.withValues(alpha: 0.5))),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Icon(n.isRead ? Icons.notifications_none : Icons.notifications, size: 22, color: n.isRead ? AppColors.textSecondary : AppColors.primary),
+                  const SizedBox(width: 12),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(n.title, style: AppTextStyles.labelLarge),
+                    const SizedBox(height: 2),
+                    Text(n.message, style: AppTextStyles.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 4),
+                    Text(DateFormatter.dateTime(n.createdAt), style: AppTextStyles.caption),
+                  ])),
+                ]),
+              ),
             );
           });
         },

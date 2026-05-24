@@ -53,88 +53,140 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
-          child: Column(
-            children: [
-              const SizedBox(height: AppSpacing.lg),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: widget.onLogin,
-                  child: const Text('Lewati'),
-                ),
+        child: Column(
+          children: [
+            // Skip button
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
+              child: Column(
+                children: [
+                  const SizedBox(height: AppSpacing.lg),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: widget.onLogin,
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.textSecondary,
+                      ),
+                      child: const Text('Lewati'),
+                    ),
+                  ),
+                ],
               ),
-              Expanded(
-                child: PageView.builder(
-                  controller: _pageController,
-                  itemCount: _slides.length,
-                  onPageChanged: (i) => setState(() => _currentPage = i),
-                  itemBuilder: (context, index) {
-                    final slide = _slides[index];
-                    return Column(
+            ),
+
+            // Page content with slide transitions
+            Expanded(
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: _slides.length,
+                onPageChanged: (i) => setState(() => _currentPage = i),
+                itemBuilder: (context, index) {
+                  final slide = _slides[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal + 8),
+                    child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
-                          width: 120,
-                          height: 120,
+                          width: 128,
+                          height: 128,
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
+                            gradient: const LinearGradient(
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
-                              colors: [AppColors.primary, AppColors.primaryDark],
+                              colors: [Color(0xFF43A047), AppColors.primaryDark],
                             ),
-                            borderRadius: BorderRadius.circular(32),
+                            borderRadius: BorderRadius.circular(36),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.3),
-                                blurRadius: 24,
-                                offset: const Offset(0, 12),
+                                color: AppColors.primary.withValues(alpha: 0.35),
+                                blurRadius: 32,
+                                offset: const Offset(0, 16),
                               ),
                             ],
                           ),
                           child: Icon(slide.icon, size: 56, color: Colors.white),
                         ),
-                        const SizedBox(height: 40),
-                        Text(slide.title, style: AppTextStyles.headlineLarge, textAlign: TextAlign.center),
+                        const SizedBox(height: 48),
+                        Text(
+                          slide.title,
+                          style: AppTextStyles.headlineLarge,
+                          textAlign: TextAlign.center,
+                        ),
                         const SizedBox(height: 16),
-                        Text(slide.description, style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary), textAlign: TextAlign.center),
+                        Text(
+                          slide.description,
+                          style: AppTextStyles.bodyLarge.copyWith(
+                            color: AppColors.textSecondary,
+                            height: 1.6,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ],
-                    );
-                  },
-                ),
-              ),
-              // Dots
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  _slides.length,
-                  (i) => AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: _currentPage == i ? 24 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: _currentPage == i ? AppColors.primary : AppColors.border,
-                      borderRadius: BorderRadius.circular(4),
                     ),
+                  );
+                },
+              ),
+            ),
+
+            // Dots
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(
+                _slides.length,
+                (i) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  width: _currentPage == i ? 28 : 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _currentPage == i ? AppColors.primary : AppColors.border,
+                    borderRadius: BorderRadius.circular(4),
                   ),
                 ),
               ),
-              const SizedBox(height: 40),
-              AppButton(
-                label: 'Masuk',
-                onPressed: widget.onLogin,
+            ),
+            const SizedBox(height: 32),
+
+            // Bottom frosted/elevated button section
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 16,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+                border: Border(
+                  top: BorderSide(color: AppColors.border.withValues(alpha: 0.5)),
+                ),
               ),
-              const SizedBox(height: 12),
-              AppButton(
-                label: 'Daftar Sekarang',
-                isOutlined: true,
-                onPressed: widget.onRegister,
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenHorizontal,
+                AppSpacing.lg,
+                AppSpacing.screenHorizontal,
+                AppSpacing.xl,
               ),
-              const SizedBox(height: AppSpacing.xl),
-            ],
-          ),
+              child: Column(
+                children: [
+                  AppButton(
+                    label: 'Masuk',
+                    onPressed: widget.onLogin,
+                  ),
+                  const SizedBox(height: 12),
+                  AppButton(
+                    label: 'Daftar Sekarang',
+                    isOutlined: true,
+                    onPressed: widget.onRegister,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

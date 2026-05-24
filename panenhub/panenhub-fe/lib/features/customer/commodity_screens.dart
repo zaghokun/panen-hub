@@ -181,18 +181,61 @@ class CommodityDetailScreen extends ConsumerWidget {
                   Text(c.description, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
                   const SizedBox(height: 20),
                   // Farmer info
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
-                    child: Row(children: [
-                      CircleAvatar(radius: 22, backgroundColor: AppColors.primarySurface, child: Text(c.farmerName[0], style: AppTextStyles.titleMedium.copyWith(color: AppColors.primary))),
-                      const SizedBox(width: 12),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(c.farmerName, style: AppTextStyles.labelLarge),
-                        Text('Petani Mitra PanenHub', style: AppTextStyles.caption),
-                      ])),
-                      Icon(Icons.chevron_right, color: AppColors.textSecondary),
-                    ]),
+                  GestureDetector(
+                    onTap: () {
+                      showModalBottomSheet(
+                        context: context,
+                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                        builder: (ctx) => Consumer(builder: (ctx, ref, _) {
+                          final reviews = ref.watch(reviewListProvider(c.farmerId));
+                          return Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Row(children: [
+                                CircleAvatar(radius: 22, backgroundColor: AppColors.primarySurface, child: Text(c.farmerName[0], style: AppTextStyles.titleMedium.copyWith(color: AppColors.primary))),
+                                const SizedBox(width: 12),
+                                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                  Text(c.farmerName, style: AppTextStyles.labelLarge),
+                                  Text('Petani Mitra PanenHub', style: AppTextStyles.caption),
+                                ])),
+                              ]),
+                              const Divider(height: 24),
+                              Text('Ulasan', style: AppTextStyles.titleMedium),
+                              const SizedBox(height: 12),
+                              reviews.when(
+                                data: (list) {
+                                  if (list.isEmpty) return Text('Belum ada ulasan.', style: AppTextStyles.caption);
+                                  return Column(children: list.take(3).map((r) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                      Row(children: List.generate(5, (i) => Icon(i < r.rating ? Icons.star : Icons.star_border, size: 14, color: AppColors.secondary))),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: Text(r.comment, style: AppTextStyles.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis)),
+                                    ]),
+                                  )).toList());
+                                },
+                                loading: () => const SizedBox(height: 40, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                                error: (_, __) => Text('Gagal memuat ulasan', style: AppTextStyles.caption),
+                              ),
+                              const SizedBox(height: 8),
+                            ]),
+                          );
+                        }),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+                      child: Row(children: [
+                        CircleAvatar(radius: 22, backgroundColor: AppColors.primarySurface, child: Text(c.farmerName[0], style: AppTextStyles.titleMedium.copyWith(color: AppColors.primary))),
+                        const SizedBox(width: 12),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(c.farmerName, style: AppTextStyles.labelLarge),
+                          Text('Petani Mitra PanenHub', style: AppTextStyles.caption),
+                        ])),
+                        Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                      ]),
+                    ),
                   ),
                   const SizedBox(height: 100),
                 ]),

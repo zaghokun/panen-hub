@@ -42,12 +42,21 @@ class AppButton extends StatelessWidget {
           onPressed: isLoading ? null : onPressed,
           style: OutlinedButton.styleFrom(
             foregroundColor: bgColor,
-            side: BorderSide(color: bgColor),
+            side: BorderSide(
+              color: onPressed == null && !isLoading
+                  ? bgColor.withValues(alpha: 0.3)
+                  : bgColor,
+              width: 1.5,
+            ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(radius),
             ),
+            disabledForegroundColor: bgColor.withValues(alpha: 0.4),
           ),
-          child: _buildChild(bgColor),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _buildChild(bgColor),
+          ),
         ),
       );
     }
@@ -60,13 +69,18 @@ class AppButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: bgColor,
           foregroundColor: fgColor,
-          disabledBackgroundColor: bgColor.withValues(alpha: 0.6),
+          disabledBackgroundColor: bgColor.withValues(alpha: 0.4),
+          disabledForegroundColor: fgColor.withValues(alpha: 0.6),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radius),
           ),
-          elevation: 0,
+          elevation: onPressed != null && !isLoading ? 2 : 0,
+          shadowColor: bgColor.withValues(alpha: 0.35),
         ),
-        child: _buildChild(fgColor),
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 200),
+          child: _buildChild(fgColor),
+        ),
       ),
     );
   }
@@ -74,10 +88,12 @@ class AppButton extends StatelessWidget {
   Widget _buildChild(Color color) {
     if (isLoading) {
       return SizedBox(
+        key: const ValueKey('loading'),
         width: 20,
         height: 20,
         child: CircularProgressIndicator(
-          strokeWidth: 2,
+          strokeWidth: 2.5,
+          strokeCap: StrokeCap.round,
           valueColor: AlwaysStoppedAnimation<Color>(
             isOutlined ? color : AppColors.textOnPrimary,
           ),
@@ -87,15 +103,17 @@ class AppButton extends StatelessWidget {
 
     if (icon != null) {
       return Row(
+        key: const ValueKey('icon-label'),
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18),
-          const SizedBox(width: 8),
+          Icon(icon, size: isSmall ? 16 : 18),
+          const SizedBox(width: 10),
           Text(label),
         ],
       );
     }
 
-    return Text(label);
+    return Text(label, key: const ValueKey('label'));
   }
 }
