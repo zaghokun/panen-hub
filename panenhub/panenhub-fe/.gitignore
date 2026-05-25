@@ -93,3 +93,8 @@ launch.json
 # Local testing
 test_driver/
 integration_test/generated/
+
+# Android local config (WAJIB - berbeda tiap laptop)
+android/local.properties
+android/.gradle/
+android/key.properties
