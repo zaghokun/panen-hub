@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+uploads/*
+!uploads/.gitkeep
+!uploads/commodities/.gitkeep
+!uploads/farms/.gitkeep
+!uploads/qc/.gitkeep
+!uploads/disputes/.gitkeep
+*.js.map
+*.d.ts
