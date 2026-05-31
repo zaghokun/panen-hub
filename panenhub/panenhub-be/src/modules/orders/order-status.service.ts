@@ -5,7 +5,7 @@ import { NotificationService } from '../notifications/notification.service'
 
 // Transisi yang diizinkan untuk farmer
 const FARMER_TRANSITIONS: Record<string, OrderStatus[]> = {
-  paid_escrow: ['pre_order_confirmed'],
+  paid_escrow: ['pre_order_confirmed', 'harvesting'],
   pre_order_confirmed: ['harvesting'],
   harvesting: ['sorting_qc'],
   sorting_qc: ['shipped'],

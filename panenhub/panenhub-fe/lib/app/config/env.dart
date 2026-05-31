@@ -6,11 +6,11 @@ class Env {
 
   static const baseUrl = String.fromEnvironment(
     'BASE_URL',
-    defaultValue: 'https://api.panenhub.example',
+    defaultValue: 'http://localhost:3000/api/v1',
   );
 
   static const useMockData = bool.fromEnvironment(
     'USE_MOCK_DATA',
-    defaultValue: true,
+    defaultValue: false,
   );
 }

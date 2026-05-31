@@ -1,7 +1,16 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../data/mock_data_source.dart';
 import '../shared/enums/app_enums.dart';
 import '../shared/models/app_models.dart';
+import '../core/network/services/auth_service.dart';
+import '../core/network/services/commodity_service.dart';
+import '../core/network/services/order_service.dart';
+import '../core/network/services/payment_service.dart';
+import '../core/network/services/farmer_service.dart';
+import '../core/network/services/admin_service.dart';
+import '../core/network/services/notification_service.dart';
+import '../core/network/token_storage.dart';
+import '../core/network/api_exceptions.dart';
 
 // ─── AUTH STATE ─────────────────────────────────────────
 
@@ -27,35 +36,43 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier() : super(const AuthState());
 
+  final _authService = AuthService();
+
   Future<bool> login(String email, String password) async {
     state = state.copyWith(isLoading: true, error: null);
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    AppUser? user;
-    if (email == 'customer@panenhub.test' && password == 'password') {
-      user = MockDataSource.customerUser;
-    } else if (email == 'farmer@panenhub.test' && password == 'password') {
-      user = MockDataSource.farmerUser;
-    } else if (email == 'admin@panenhub.test' && password == 'password') {
-      user = MockDataSource.adminUser;
-    }
-
-    if (user != null) {
+    try {
+      final user = await _authService.login(email, password);
       state = state.copyWith(user: user, isLoading: false);
       return true;
-    } else {
-      state = state.copyWith(isLoading: false, error: 'Email atau password salah');
+    } on DioException catch (e) {
+      final apiError = e.error;
+      final message = apiError is ApiException ? apiError.message : 'Tidak dapat terhubung ke server.';
+      state = state.copyWith(isLoading: false, error: message);
+      return false;
+    } catch (_) {
+      state = state.copyWith(isLoading: false, error: 'Tidak dapat terhubung ke server.');
       return false;
     }
   }
 
-  void logout() {
+  Future<void> logout() async {
+    await _authService.logout();
     state = const AuthState();
   }
 
-  void checkSession() {
-    // In mock mode, no persisted session
-    state = const AuthState();
+  Future<void> checkSession() async {
+    final token = await TokenStorage.getAccessToken();
+    if (token == null) {
+      state = const AuthState();
+      return;
+    }
+    try {
+      final user = await _authService.me();
+      state = state.copyWith(user: user);
+    } catch (_) {
+      await TokenStorage.clear();
+      state = const AuthState();
+    }
   }
 }
 
@@ -65,32 +82,23 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
 
 // ─── COMMODITY PROVIDERS ─────────────────────────────────
 
+final _commodityService = CommodityService();
+
 final commodityListProvider = FutureProvider.family<List<Commodity>, String?>((ref, search) async {
-  await Future.delayed(const Duration(milliseconds: 600));
-  final items = MockDataSource.commodities.where((c) => c.isActive).toList();
-  if (search != null && search.isNotEmpty) {
-    return items
-        .where((c) =>
-            c.name.toLowerCase().contains(search.toLowerCase()) ||
-            c.category.toLowerCase().contains(search.toLowerCase()) ||
-            c.location.toLowerCase().contains(search.toLowerCase()))
-        .toList();
-  }
-  return items;
+  return _commodityService.list(search: search);
 });
 
 final commodityDetailProvider = FutureProvider.family<Commodity, String>((ref, id) async {
-  await Future.delayed(const Duration(milliseconds: 400));
-  return MockDataSource.commodities.firstWhere((c) => c.id == id);
+  return _commodityService.detail(id);
 });
 
 final farmerCommodityListProvider = FutureProvider<List<Commodity>>((ref) async {
-  await Future.delayed(const Duration(milliseconds: 500));
-  final auth = ref.read(authProvider);
-  return MockDataSource.commodities.where((c) => c.farmerId == auth.user?.id).toList();
+  return _commodityService.farmerList();
 });
 
 // ─── ORDER PROVIDERS ─────────────────────────────────────
+
+final _orderService = OrderService();
 
 class OrderListNotifier extends StateNotifier<AsyncValue<List<PreOrder>>> {
   final Ref ref;
@@ -100,36 +108,42 @@ class OrderListNotifier extends StateNotifier<AsyncValue<List<PreOrder>>> {
   }
 
   Future<void> _init() async {
-    // Small delay to ensure auth state is ready
     await Future.delayed(const Duration(milliseconds: 100));
     await loadOrders();
   }
 
   Future<void> loadOrders() async {
     state = const AsyncValue.loading();
-    await Future.delayed(const Duration(milliseconds: 600));
-    final auth = ref.read(authProvider);
-    if (auth.user == null) {
-      state = const AsyncValue.data([]);
-      return;
+    try {
+      final auth = ref.read(authProvider);
+      if (auth.user == null) {
+        state = const AsyncValue.data([]);
+        return;
+      }
+      List<PreOrder> orders;
+      if (auth.role == UserRole.farmer) {
+        orders = await _orderService.farmerList();
+      } else {
+        orders = await _orderService.customerList();
+      }
+      state = AsyncValue.data(orders);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
     }
-    List<PreOrder> filtered;
-    if (auth.role == UserRole.customer) {
-      filtered = MockDataSource.orders.where((o) => o.customerId == auth.user?.id).toList();
-    } else if (auth.role == UserRole.farmer) {
-      filtered = MockDataSource.orders.where((o) => o.farmerId == auth.user?.id).toList();
-    } else {
-      filtered = List.from(MockDataSource.orders);
-    }
-    state = AsyncValue.data(filtered);
   }
 
-  Future<void> updateStatus(String orderId, OrderStatus newStatus) async {
-    await Future.delayed(const Duration(milliseconds: 500));
-    final index = MockDataSource.orders.indexWhere((o) => o.id == orderId);
-    if (index != -1) {
-      MockDataSource.orders[index] = MockDataSource.orders[index].copyWith(status: newStatus);
-    }
+  Future<void> updateStatus(String orderId, OrderStatus newStatus, {
+    String? notes,
+    String? courierName,
+    String? trackingNumber,
+  }) async {
+    await _orderService.updateStatus(
+      orderId,
+      status: newStatus.toApi(),
+      notes: notes,
+      courierName: courierName,
+      trackingNumber: trackingNumber,
+    );
     await loadOrders();
   }
 }
@@ -139,73 +153,70 @@ final orderListProvider = StateNotifierProvider<OrderListNotifier, AsyncValue<Li
 });
 
 final orderDetailProvider = FutureProvider.family<PreOrder, String>((ref, id) async {
-  await Future.delayed(const Duration(milliseconds: 400));
-  return MockDataSource.orders.firstWhere((o) => o.id == id);
+  return _orderService.detail(id);
 });
 
 // ─── PAYMENT PROVIDERS ──────────────────────────────────
 
+final _paymentService = PaymentService();
+
 final paymentProvider = FutureProvider.family<Payment, String>((ref, orderId) async {
-  await Future.delayed(const Duration(milliseconds: 400));
-  return MockDataSource.payments.firstWhere((p) => p.orderId == orderId,
-      orElse: () => Payment(
-            id: 'PAY-NEW',
-            orderId: orderId,
-            amount: 0,
-            method: 'BCA Virtual Account',
-            virtualAccountNumber: '8801234567890099',
-            escrowStatus: 'pending',
-          ));
+  return _paymentService.getStatus(orderId);
 });
 
 // ─── WALLET PROVIDER ────────────────────────────────────
 
+final _farmerService = FarmerService();
+
 final walletProvider = FutureProvider<WalletSummary>((ref) async {
-  await Future.delayed(const Duration(milliseconds: 500));
-  return MockDataSource.walletSummary;
+  return _farmerService.getWallet();
 });
 
 // ─── DISPUTE PROVIDERS ──────────────────────────────────
 
+final _adminService = AdminService();
+
+final adminDashboardProvider = FutureProvider<Map<String, int>>((ref) async {
+  return _adminService.dashboard();
+});
+
 final disputeListProvider = FutureProvider<List<Dispute>>((ref) async {
-  await Future.delayed(const Duration(milliseconds: 500));
-  return MockDataSource.disputes;
+  return _adminService.listDisputes();
 });
 
 // ─── WITHDRAWAL PROVIDERS ───────────────────────────────
 
 final withdrawalListProvider = FutureProvider<List<Withdrawal>>((ref) async {
-  await Future.delayed(const Duration(milliseconds: 500));
-  return MockDataSource.withdrawals;
+  return _adminService.listWithdrawals();
 });
 
 // ─── REVIEW PROVIDERS ───────────────────────────────────
 
+// Note: Backend doesn't have a "list reviews by farmer" endpoint yet.
+// For now, return empty. Can be added later.
 final reviewListProvider = FutureProvider.family<List<Review>, String>((ref, farmerId) async {
-  await Future.delayed(const Duration(milliseconds: 400));
-  return MockDataSource.reviews.where((r) => r.farmerId == farmerId).toList();
+  return [];
 });
 
 // ─── NOTIFICATION PROVIDERS ─────────────────────────────
 
+final _notificationService = NotificationService();
+
 final notificationListProvider = FutureProvider<List<AppNotification>>((ref) async {
-  await Future.delayed(const Duration(milliseconds: 400));
-  return MockDataSource.notifications;
+  return _notificationService.list();
 });
 
 // ─── PENDING USERS (ADMIN) ──────────────────────────────
 
 final pendingUsersProvider = FutureProvider<List<AppUser>>((ref) async {
-  await Future.delayed(const Duration(milliseconds: 500));
-  return [MockDataSource.pendingFarmer, MockDataSource.pendingFarmer2];
+  return _adminService.pendingVerifications();
 });
 
 // ─── STATUS HISTORY ─────────────────────────────────────
 
 final orderStatusHistoryProvider =
     FutureProvider.family<List<OrderStatusHistory>, String>((ref, orderId) async {
-  await Future.delayed(const Duration(milliseconds: 300));
-  return MockDataSource.orderStatusHistories[orderId] ?? [];
+  return _orderService.statusHistory(orderId);
 });
 
 // ─── BOTTOM NAV INDEX ───────────────────────────────────

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../app/theme/app_spacing.dart';
@@ -12,6 +13,12 @@ import '../../core/widgets/app_status_chip.dart';
 import '../../core/widgets/app_loading_state.dart';
 import '../../core/widgets/app_empty_state.dart';
 import '../../core/widgets/app_confirmation_dialog.dart';
+import '../../core/network/services/order_service.dart';
+import '../../core/network/services/payment_service.dart';
+import '../../core/network/services/qc_service.dart';
+import '../../core/network/services/dispute_service.dart';
+import '../../core/network/services/review_service.dart';
+import '../../core/network/api_exceptions.dart';
 import '../../providers/app_providers.dart';
 import '../../shared/enums/app_enums.dart';
 
@@ -115,7 +122,30 @@ class _CreatePreOrderScreenState extends ConsumerState<CreatePreOrderScreen> {
                 if (!_formKey.currentState!.validate()) return;
                 if (_deliveryDate == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pilih tanggal pengiriman'), backgroundColor: AppColors.error)); return; }
                 final confirmed = await AppConfirmationDialog.show(context, title: 'Konfirmasi Pre-Order', message: 'Anda akan memesan ${_qtyController.text} kg ${c.name} untuk dikirim pada ${DateFormatter.full(_deliveryDate!)}.');
-                if (confirmed == true) { setState(() => _isLoading = true); await Future.delayed(const Duration(seconds: 1)); setState(() => _isLoading = false); if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pre-order berhasil! Lanjutkan ke pembayaran.'), backgroundColor: AppColors.success)); widget.onSuccess(); } }
+                if (confirmed == true) {
+                  setState(() => _isLoading = true);
+                  try {
+                    await OrderService().create(
+                      commodityId: widget.commodityId,
+                      quantityKg: double.parse(_qtyController.text),
+                      deliveryDate: _deliveryDate!.toUtc().toIso8601String(),
+                      deliveryAddress: _addressController.text.trim(),
+                      notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+                    );
+                    ref.invalidate(orderListProvider);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pre-order berhasil! Lanjutkan ke pembayaran.'), backgroundColor: AppColors.success));
+                      widget.onSuccess();
+                    }
+                  } on DioException catch (e) {
+                    if (mounted) {
+                      final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal membuat pre-order.';
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error));
+                    }
+                  } finally {
+                    if (mounted) setState(() => _isLoading = false);
+                  }
+                }
               }),
               const SizedBox(height: 32),
             ]),
@@ -247,25 +277,51 @@ class OrderDetailScreen extends ConsumerWidget {
             const SizedBox(height: 20),
             // CTAs — only show customer-specific actions for customers
             if (ref.read(authProvider).role == UserRole.customer) ...[
-              if (o.status == OrderStatus.shipped || o.status == OrderStatus.delivered) ...[
+              if (o.status == OrderStatus.shipped) ...[
                 AppButton(label: 'Konfirmasi Penerimaan', icon: Icons.check_circle_outline, onPressed: () async {
-                  final accepted = await AppConfirmationDialog.show(context, title: 'Konfirmasi Penerimaan', message: 'Apakah barang sudah diterima dan kondisi sesuai?');
+                  final accepted = await AppConfirmationDialog.show(context, title: 'Konfirmasi Penerimaan', message: 'Apakah barang sudah diterima?');
                   if (accepted == true) {
-                    ref.read(orderListProvider.notifier).updateStatus(o.id, OrderStatus.completed);
-                    if (context.mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pesanan diterima. Dana akan dicairkan ke petani.'), backgroundColor: AppColors.success)); Navigator.of(context).pop(); }
+                    try {
+                      await OrderService().confirmReceipt(o.id);
+                      ref.invalidate(orderListProvider);
+                      if (context.mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Penerimaan dikonfirmasi. Silakan lakukan Quality Control.'), backgroundColor: AppColors.success)); Navigator.of(context).pop(); }
+                    } on DioException catch (e) {
+                      if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal konfirmasi penerimaan.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+                    }
+                  }
+                }),
+              ],
+              if (o.status == OrderStatus.delivered) ...[
+                AppButton(label: 'Submit Quality Control', icon: Icons.fact_check_outlined, onPressed: () async {
+                  final accepted = await AppConfirmationDialog.show(context, title: 'Quality Control', message: 'Apakah barang dalam kondisi BAIK dan jumlah SESUAI? Jika ya, dana akan dirilis ke petani dan pesanan selesai.');
+                  if (accepted == true) {
+                    try {
+                      await QcService().submit(o.id, conditionStatus: 'good', quantityStatus: 'complete');
+                      ref.invalidate(orderListProvider);
+                      if (context.mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('QC berhasil. Pesanan selesai, dana dirilis ke petani.'), backgroundColor: AppColors.success)); Navigator.of(context).pop(); }
+                    } on DioException catch (e) {
+                      if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal submit QC.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+                    }
                   }
                 }),
                 const SizedBox(height: 8),
-                AppButton(label: 'Barang Tidak Sesuai', isOutlined: true, isDanger: true, icon: Icons.report_problem_outlined, onPressed: onDispute),
+                AppButton(label: 'Barang Tidak Sesuai (Sengketa)', isOutlined: true, isDanger: true, icon: Icons.report_problem_outlined, onPressed: onDispute),
               ],
               if (o.status == OrderStatus.completed) ...[
                 AppButton(label: 'Beri Ulasan', icon: Icons.star_outline, onPressed: onReview),
               ],
               if (o.status == OrderStatus.waitingPayment) ...[
-                AppButton(label: 'Bayar Sekarang', icon: Icons.payment, onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Simulasi pembayaran berhasil!'), backgroundColor: AppColors.success));
-                  ref.read(orderListProvider.notifier).updateStatus(o.id, OrderStatus.paidEscrow);
-                  Navigator.of(context).pop();
+                AppButton(label: 'Bayar Sekarang', icon: Icons.payment, onPressed: () async {
+                  try {
+                    await PaymentService().create(o.id);
+                    ref.invalidate(orderListProvider);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pembayaran berhasil! Dana ditahan di escrow.'), backgroundColor: AppColors.success));
+                      Navigator.of(context).pop();
+                    }
+                  } on DioException catch (e) {
+                    if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal memproses pembayaran.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+                  }
                 }),
               ],
             ],
@@ -392,8 +448,13 @@ class _CreateDisputeScreenState extends State<CreateDisputeScreen> {
           const SizedBox(height: 24),
           AppButton(label: 'Kirim Sengketa', isDanger: true, isLoading: _isLoading, onPressed: () async {
             if (!_formKey.currentState!.validate()) return;
-            setState(() => _isLoading = true); await Future.delayed(const Duration(seconds: 1)); setState(() => _isLoading = false);
-            if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sengketa berhasil diajukan. Admin akan meninjau.'), backgroundColor: AppColors.success)); widget.onSuccess(); }
+            setState(() => _isLoading = true);
+            try {
+              await DisputeService().create(widget.orderId, reason: _reasonController.text.contains('busuk') || _reasonController.text.contains('rusak') ? 'quality_issue' : 'other', description: _descController.text.trim());
+              if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sengketa berhasil diajukan. Admin akan meninjau.'), backgroundColor: AppColors.success)); widget.onSuccess(); }
+            } on DioException catch (e) {
+              if (mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal mengajukan sengketa.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+            } finally { if (mounted) setState(() => _isLoading = false); }
           }),
         ])),
       ),
@@ -440,8 +501,13 @@ class _CreateReviewScreenState extends State<CreateReviewScreen> {
           AppTextField(label: 'Komentar', hint: 'Ceritakan pengalaman Anda (opsional)', controller: _commentController, maxLines: 4, maxLength: 500),
           const SizedBox(height: 24),
           AppButton(label: 'Kirim Ulasan', isLoading: _isLoading, onPressed: _rating == 0 ? null : () async {
-            setState(() => _isLoading = true); await Future.delayed(const Duration(seconds: 1)); setState(() => _isLoading = false);
-            if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ulasan berhasil dikirim!'), backgroundColor: AppColors.success)); widget.onSuccess(); }
+            setState(() => _isLoading = true);
+            try {
+              await ReviewService().create(widget.orderId, rating: _rating, comment: _commentController.text.trim().isEmpty ? 'Bagus' : _commentController.text.trim());
+              if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ulasan berhasil dikirim!'), backgroundColor: AppColors.success)); widget.onSuccess(); }
+            } on DioException catch (e) {
+              if (mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal mengirim ulasan.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+            } finally { if (mounted) setState(() => _isLoading = false); }
           }),
         ]),
       ),

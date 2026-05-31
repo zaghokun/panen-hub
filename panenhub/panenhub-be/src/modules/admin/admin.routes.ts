@@ -9,6 +9,7 @@ export const adminRoutes = Router()
 adminRoutes.use(authMiddleware, roleMiddleware('admin'))
 
 adminRoutes.get('/dashboard', controller.dashboard)
+adminRoutes.get('/users/pending', controller.pendingFarmers)
 adminRoutes.patch('/users/:id/verify', controller.verifyFarmer)
 adminRoutes.get('/disputes', controller.listDisputes)
 adminRoutes.patch('/disputes/:id/decision', controller.decideDispute)

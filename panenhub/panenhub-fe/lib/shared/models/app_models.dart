@@ -1,4 +1,4 @@
-import '../../shared/enums/app_enums.dart';
+import '../enums/app_enums.dart';
 
 /// Application user entity
 class AppUser {
@@ -25,6 +25,23 @@ class AppUser {
     this.businessType,
     this.businessAddress,
   });
+
+  factory AppUser.fromJson(Map<String, dynamic> json) {
+    final profile = json['customerProfile'] as Map<String, dynamic>?;
+    final farmerProfile = json['farmerProfile'] as Map<String, dynamic>?;
+    return AppUser(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      email: json['email'] as String,
+      phone: (json['phone'] as String?) ?? '',
+      role: UserRole.fromApi(json['role'] as String),
+      avatarUrl: farmerProfile?['photoUrl'] as String?,
+      isVerified: farmerProfile?['verificationStatus'] == 'verified',
+      businessName: profile?['businessName'] as String?,
+      businessType: profile?['businessType'] as String?,
+      businessAddress: profile?['businessAddress'] as String?,
+    );
+  }
 }
 
 /// Farmer profile with land information
@@ -50,6 +67,18 @@ class FarmerProfile {
     this.photoUrl,
     required this.verificationStatus,
   });
+
+  factory FarmerProfile.fromJson(Map<String, dynamic> json) => FarmerProfile(
+    id: json['id'] as String,
+    userId: json['userId'] as String,
+    farmName: json['farmName'] as String,
+    address: json['address'] as String,
+    landArea: (json['landArea'] as num).toDouble(),
+    latitude: (json['latitude'] as num?)?.toDouble(),
+    longitude: (json['longitude'] as num?)?.toDouble(),
+    photoUrl: json['photoUrl'] as String?,
+    verificationStatus: json['verificationStatus'] as String? ?? 'pending',
+  );
 }
 
 /// Commodity / Harvest offer entity
@@ -83,6 +112,24 @@ class Commodity {
     required this.isActive,
     this.farmerRating = 0.0,
   });
+
+  factory Commodity.fromJson(Map<String, dynamic> json) {
+    final farmer = json['farmer'] as Map<String, dynamic>?;
+    return Commodity(
+      id: json['id'] as String,
+      farmerId: json['farmerId'] as String,
+      farmerName: farmer?['name'] as String? ?? '',
+      name: json['name'] as String,
+      category: json['category'] as String,
+      description: (json['description'] as String?) ?? '',
+      pricePerKg: json['pricePerKg'] as int,
+      availableQuotaKg: (json['availableQuotaKg'] as num).toDouble(),
+      estimatedHarvestDate: DateTime.parse(json['estimatedHarvestDate'] as String),
+      location: json['location'] as String,
+      imageUrls: json['imageUrl'] != null ? [json['imageUrl'] as String] : [],
+      isActive: json['status'] == 'active',
+    );
+  }
 }
 
 /// Pre-order entity
@@ -121,25 +168,46 @@ class PreOrder {
     required this.createdAt,
   });
 
-  PreOrder copyWith({OrderStatus? status}) {
+  factory PreOrder.fromJson(Map<String, dynamic> json) {
+    final commodity = json['commodity'] as Map<String, dynamic>?;
+    final customer = json['customer'] as Map<String, dynamic>?;
+    final farmer = json['farmer'] as Map<String, dynamic>?;
     return PreOrder(
-      id: id,
-      customerId: customerId,
-      customerName: customerName,
-      farmerId: farmerId,
-      farmerName: farmerName,
-      commodityId: commodityId,
-      commodityName: commodityName,
-      quantityKg: quantityKg,
-      pricePerKg: pricePerKg,
-      totalPrice: totalPrice,
-      deliveryDate: deliveryDate,
-      status: status ?? this.status,
-      deliveryAddress: deliveryAddress,
-      notes: notes,
-      createdAt: createdAt,
+      id: json['id'] as String,
+      customerId: json['customerId'] as String,
+      customerName: customer?['name'] as String? ?? '',
+      farmerId: json['farmerId'] as String,
+      farmerName: farmer?['name'] as String? ?? '',
+      commodityId: json['commodityId'] as String,
+      commodityName: commodity?['name'] as String? ?? '',
+      quantityKg: (json['quantityKg'] as num).toDouble(),
+      pricePerKg: json['pricePerKg'] as int,
+      totalPrice: json['totalPrice'] as int,
+      deliveryDate: DateTime.parse(json['deliveryDate'] as String),
+      status: OrderStatus.fromApi(json['status'] as String),
+      deliveryAddress: json['deliveryAddress'] as String,
+      notes: json['notes'] as String?,
+      createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }
+
+  PreOrder copyWith({OrderStatus? status}) => PreOrder(
+    id: id,
+    customerId: customerId,
+    customerName: customerName,
+    farmerId: farmerId,
+    farmerName: farmerName,
+    commodityId: commodityId,
+    commodityName: commodityName,
+    quantityKg: quantityKg,
+    pricePerKg: pricePerKg,
+    totalPrice: totalPrice,
+    deliveryDate: deliveryDate,
+    status: status ?? this.status,
+    deliveryAddress: deliveryAddress,
+    notes: notes,
+    createdAt: createdAt,
+  );
 }
 
 /// Payment entity
@@ -163,6 +231,17 @@ class Payment {
     this.paidAt,
     this.expiresAt,
   });
+
+  factory Payment.fromJson(Map<String, dynamic> json) => Payment(
+    id: json['id'] as String? ?? '',
+    orderId: json['orderId'] as String? ?? '',
+    amount: json['amount'] as int,
+    method: json['method'] as String? ?? 'bank_transfer',
+    virtualAccountNumber: json['paymentReference'] as String? ?? '',
+    escrowStatus: json['escrowStatus'] as String? ?? 'unpaid',
+    paidAt: json['paidAt'] != null ? DateTime.parse(json['paidAt'] as String) : null,
+    expiresAt: null,
+  );
 }
 
 /// Quality Control report
@@ -182,6 +261,15 @@ class QualityControlReport {
     required this.evidenceImageUrls,
     required this.createdAt,
   });
+
+  factory QualityControlReport.fromJson(Map<String, dynamic> json) => QualityControlReport(
+    id: json['id'] as String,
+    orderId: json['orderId'] as String,
+    isAccepted: json['conditionStatus'] == 'good' && json['quantityStatus'] == 'complete',
+    note: json['qualityNotes'] as String?,
+    evidenceImageUrls: json['photoUrl'] != null ? [json['photoUrl'] as String] : [],
+    createdAt: DateTime.parse(json['createdAt'] as String),
+  );
 }
 
 /// Dispute entity
@@ -215,6 +303,29 @@ class Dispute {
     required this.escrowAmount,
     required this.createdAt,
   });
+
+  factory Dispute.fromJson(Map<String, dynamic> json) {
+    final customer = json['customer'] as Map<String, dynamic>?;
+    final farmer = json['farmer'] as Map<String, dynamic>?;
+    final order = json['order'] as Map<String, dynamic>?;
+    final commodity = order?['commodity'] as Map<String, dynamic>?;
+    final evidences = json['evidences'] as List<dynamic>?;
+    return Dispute(
+      id: json['id'] as String,
+      orderId: json['orderId'] as String,
+      customerId: json['customerId'] as String,
+      customerName: customer?['name'] as String? ?? '',
+      farmerName: farmer?['name'] as String? ?? '',
+      commodityName: commodity?['name'] as String? ?? '',
+      reason: json['reason'] as String,
+      description: json['description'] as String,
+      evidenceImageUrls: evidences?.map((e) => (e as Map<String, dynamic>)['fileUrl'] as String).toList() ?? [],
+      status: DisputeStatus.fromApi(json['status'] as String),
+      adminDecisionNote: json['adminNotes'] as String?,
+      escrowAmount: order?['totalPrice'] as int? ?? 0,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+    );
+  }
 }
 
 /// Withdrawal request entity
@@ -242,6 +353,22 @@ class Withdrawal {
     this.adminNote,
     required this.createdAt,
   });
+
+  factory Withdrawal.fromJson(Map<String, dynamic> json) {
+    final farmer = json['farmer'] as Map<String, dynamic>?;
+    return Withdrawal(
+      id: json['id'] as String,
+      farmerId: json['farmerId'] as String,
+      farmerName: farmer?['name'] as String? ?? '',
+      amount: json['amount'] as int,
+      bankName: json['bankName'] as String,
+      accountNumber: json['accountNumber'] as String,
+      accountHolderName: json['accountHolderName'] as String,
+      status: WithdrawalStatus.fromApi(json['status'] as String),
+      adminNote: json['adminNotes'] as String?,
+      createdAt: DateTime.parse(json['requestedAt'] as String),
+    );
+  }
 }
 
 /// Wallet summary for farmer
@@ -257,6 +384,13 @@ class WalletSummary {
     required this.inProcessBalance,
     required this.totalDisbursed,
   });
+
+  factory WalletSummary.fromJson(Map<String, dynamic> json) => WalletSummary(
+    availableBalance: json['balanceAvailable'] as int? ?? 0,
+    heldBalance: json['balancePending'] as int? ?? 0,
+    inProcessBalance: 0,
+    totalDisbursed: json['totalEarned'] as int? ?? 0,
+  );
 }
 
 /// Review entity
@@ -280,6 +414,20 @@ class Review {
     required this.comment,
     required this.createdAt,
   });
+
+  factory Review.fromJson(Map<String, dynamic> json) {
+    final customer = json['customer'] as Map<String, dynamic>?;
+    return Review(
+      id: json['id'] as String,
+      orderId: json['orderId'] as String,
+      customerId: json['customerId'] as String,
+      customerName: customer?['name'] as String? ?? '',
+      farmerId: json['farmerId'] as String,
+      rating: json['rating'] as int,
+      comment: json['comment'] as String,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+    );
+  }
 }
 
 /// Order status history entry
@@ -295,6 +443,30 @@ class OrderStatusHistory {
     required this.timestamp,
     this.note,
   });
+
+  factory OrderStatusHistory.fromJson(Map<String, dynamic> json) {
+    final status = json['status'] as String;
+    return OrderStatusHistory(
+      status: status,
+      label: _statusLabel(status),
+      timestamp: DateTime.parse(json['createdAt'] as String),
+      note: json['notes'] as String?,
+    );
+  }
+
+  static String _statusLabel(String status) => switch (status) {
+    'waiting_payment' => 'Menunggu Pembayaran',
+    'paid_escrow' => 'Dibayar (Escrow)',
+    'pre_order_confirmed' => 'Pre-order Dikonfirmasi',
+    'harvesting' => 'Sedang Dipanen',
+    'sorting_qc' => 'Sortir & QC',
+    'shipped' => 'Dikirim',
+    'delivered' => 'Diterima',
+    'completed' => 'Selesai',
+    'disputed' => 'Sengketa',
+    'refunded' => 'Refund',
+    _ => status,
+  };
 }
 
 /// Notification entity
@@ -314,4 +486,13 @@ class AppNotification {
     required this.isRead,
     required this.createdAt,
   });
+
+  factory AppNotification.fromJson(Map<String, dynamic> json) => AppNotification(
+    id: json['id'] as String,
+    title: json['title'] as String,
+    message: json['message'] as String,
+    type: json['type'] as String,
+    isRead: json['isRead'] as bool? ?? false,
+    createdAt: DateTime.parse(json['createdAt'] as String),
+  );
 }

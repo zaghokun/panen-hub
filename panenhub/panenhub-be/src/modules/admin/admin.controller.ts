@@ -14,6 +14,15 @@ export class AdminController {
     }
   }
 
+  pendingFarmers = async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await this.service.listPendingFarmers()
+      res.json(successResponse(data))
+    } catch (error) {
+      next(error)
+    }
+  }
+
   verifyFarmer = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const data = await this.service.verifyFarmer(req.params.id, req.body)

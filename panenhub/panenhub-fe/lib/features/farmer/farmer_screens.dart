@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -10,11 +11,14 @@ import '../../core/widgets/app_text_field.dart';
 import '../../core/widgets/app_status_chip.dart';
 import '../../core/widgets/app_loading_state.dart';
 import '../../core/widgets/app_empty_state.dart';
+import '../../core/network/services/commodity_service.dart';
+import '../../core/network/services/farmer_service.dart';
+import '../../core/network/api_exceptions.dart';
 import '../../providers/app_providers.dart';
 import '../../shared/models/app_models.dart';
+import '../../shared/enums/app_enums.dart';
 
 import '../../core/utils/status_mapper.dart';
-import '../../data/mock_data_source.dart';
 
 class FarmerDashboardScreen extends ConsumerWidget {
   final VoidCallback onAddCommodity;
@@ -24,6 +28,8 @@ class FarmerDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authProvider);
     final wallet = ref.watch(walletProvider);
+    final commodities = ref.watch(farmerCommodityListProvider);
+    final orders = ref.watch(orderListProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -86,9 +92,9 @@ class FarmerDashboardScreen extends ConsumerWidget {
             const SizedBox(height: 14),
             // Stats
             Row(children: [
-              _StatCard(icon: Icons.eco, label: 'Komoditas', value: '${MockDataSource.commodities.where((c) => c.farmerId == auth.user?.id).length}', color: AppColors.primary),
+              _StatCard(icon: Icons.eco, label: 'Komoditas', value: '${commodities.valueOrNull?.length ?? 0}', color: AppColors.primary),
               const SizedBox(width: 12),
-              _StatCard(icon: Icons.receipt_long, label: 'Pesanan', value: '${MockDataSource.orders.where((o) => o.farmerId == auth.user?.id).length}', color: AppColors.info),
+              _StatCard(icon: Icons.receipt_long, label: 'Pesanan', value: '${orders.valueOrNull?.length ?? 0}', color: AppColors.info),
             ]),
             const SizedBox(height: 12),
             wallet.when(
@@ -257,8 +263,21 @@ class _CreateCommodityScreenState extends State<CreateCommodityScreen> {
           AppButton(label: 'Posting Komoditas', isLoading: _isLoading, onPressed: () async {
             if (!_formKey.currentState!.validate()) return;
             if (_harvestDate == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pilih tanggal panen'), backgroundColor: AppColors.error)); return; }
-            setState(() => _isLoading = true); await Future.delayed(const Duration(seconds: 1)); setState(() => _isLoading = false);
-            if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Komoditas berhasil diposting!'), backgroundColor: AppColors.success)); widget.onSuccess(); }
+            setState(() => _isLoading = true);
+            try {
+              await CommodityService().create(
+                name: _nameCtrl.text.trim(),
+                category: _category.toLowerCase(),
+                description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+                pricePerKg: int.parse(_priceCtrl.text),
+                availableQuotaKg: double.parse(_quotaCtrl.text),
+                estimatedHarvestDate: _harvestDate!.toUtc().toIso8601String(),
+                location: 'Indonesia',
+              );
+              if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Komoditas berhasil diposting!'), backgroundColor: AppColors.success)); widget.onSuccess(); }
+            } on DioException catch (e) {
+              if (mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal posting komoditas.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+            } finally { if (mounted) setState(() => _isLoading = false); }
           }),
           const SizedBox(height: 32),
         ])),
@@ -290,13 +309,30 @@ class FarmerOrderListScreen extends ConsumerWidget {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.of(ctx).pop();
-                  ref.read(orderListProvider.notifier).updateStatus(order.id, status);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('Status diupdate ke ${StatusMapper.orderStatusLabel(status)}'),
-                    backgroundColor: AppColors.success,
-                  ));
+                  String? courier;
+                  String? tracking;
+                  if (status == OrderStatus.shipped) {
+                    final result = await _askCourierInfo(context);
+                    if (result == null) return;
+                    courier = result.$1;
+                    tracking = result.$2;
+                  }
+                  try {
+                    await ref.read(orderListProvider.notifier).updateStatus(order.id, status, courierName: courier, trackingNumber: tracking);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('Status diupdate ke ${StatusMapper.orderStatusLabel(status)}'),
+                        backgroundColor: AppColors.success,
+                      ));
+                    }
+                  } on DioException catch (e) {
+                    if (context.mounted) {
+                      final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal update status.';
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error));
+                    }
+                  }
                 },
                 icon: const Icon(Icons.arrow_forward, size: 18),
                 label: Text(StatusMapper.orderStatusLabel(status)),
@@ -306,6 +342,29 @@ class FarmerOrderListScreen extends ConsumerWidget {
           )),
           const SizedBox(height: 8),
         ]),
+      ),
+    );
+  }
+
+  Future<(String, String)?> _askCourierInfo(BuildContext context) async {
+    final courierCtrl = TextEditingController();
+    final trackingCtrl = TextEditingController();
+    return showDialog<(String, String)>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Info Pengiriman'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: courierCtrl, decoration: const InputDecoration(labelText: 'Nama Kurir (cth: JNE)')),
+          const SizedBox(height: 12),
+          TextField(controller: trackingCtrl, decoration: const InputDecoration(labelText: 'Nomor Resi')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Batal')),
+          ElevatedButton(onPressed: () {
+            if (courierCtrl.text.trim().isEmpty || trackingCtrl.text.trim().isEmpty) return;
+            Navigator.of(ctx).pop((courierCtrl.text.trim(), trackingCtrl.text.trim()));
+          }, child: const Text('Kirim')),
+        ],
       ),
     );
   }
@@ -437,8 +496,18 @@ class _WithdrawalRequestScreenState extends State<WithdrawalRequestScreen> {
         const SizedBox(height: 24),
         AppButton(label: 'Ajukan Pencairan', isLoading: _isLoading, onPressed: () async {
           if (!_formKey.currentState!.validate()) return;
-          setState(() => _isLoading = true); await Future.delayed(const Duration(seconds: 1)); setState(() => _isLoading = false);
-          if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pencairan diajukan. Menunggu approval admin.'), backgroundColor: AppColors.success)); widget.onSuccess(); }
+          setState(() => _isLoading = true);
+          try {
+            await FarmerService().requestWithdrawal(
+              amount: int.parse(_amountCtrl.text),
+              bankName: _bankCtrl.text.trim(),
+              accountNumber: _accountCtrl.text.trim(),
+              accountHolderName: _holderCtrl.text.trim(),
+            );
+            if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pencairan diajukan. Menunggu approval admin.'), backgroundColor: AppColors.success)); widget.onSuccess(); }
+          } on DioException catch (e) {
+            if (mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal mengajukan pencairan.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+          } finally { if (mounted) setState(() => _isLoading = false); }
         }),
       ]))),
     );

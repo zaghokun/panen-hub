@@ -9,7 +9,6 @@ import '../../core/widgets/app_loading_state.dart';
 import '../../core/widgets/app_empty_state.dart';
 import '../../providers/app_providers.dart';
 import '../../shared/models/app_models.dart';
-import '../../data/mock_data_source.dart';
 
 // ─── COMMODITY LIST SCREEN ───────────────────────────────
 class CommodityListScreen extends ConsumerStatefulWidget {
@@ -60,7 +59,7 @@ class _CommodityListScreenState extends ConsumerState<CommodityListScreen> {
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              children: MockDataSource.categories.map((cat) {
+              children: ['Semua', 'Sayur', 'Buah', 'Bumbu', 'Biji-bijian', 'Umbi', 'Lainnya'].map((cat) {
                 final sel = cat == _selectedCategory;
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -237,7 +236,16 @@ class CommodityDetailScreen extends ConsumerWidget {
                       ]),
                     ),
                   ),
-                  const SizedBox(height: 100),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: c.availableQuotaKg > 0 ? () => onPreOrder(c.id) : null,
+                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
+                      child: Text(c.availableQuotaKg > 0 ? 'Buat Pre-Order — ${CurrencyFormatter.formatPerKg(c.pricePerKg)}' : 'Stok Habis'),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                 ]),
               ),
             ],
@@ -246,23 +254,6 @@ class CommodityDetailScreen extends ConsumerWidget {
         loading: () => const AppLoadingState(),
         error: (_, __) => const Center(child: Text('Gagal memuat detail')),
       ),
-      bottomNavigationBar: commodity.whenData((c) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: AppColors.surface, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))]),
-        child: SafeArea(
-          child: Row(children: [
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Total Harga', style: AppTextStyles.caption),
-              Text(CurrencyFormatter.formatPerKg(c.pricePerKg), style: AppTextStyles.titleMedium.copyWith(color: AppColors.primary)),
-            ])),
-            ElevatedButton(
-              onPressed: c.availableQuotaKg > 0 ? () => onPreOrder(c.id) : null,
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
-              child: const Text('Buat Pre-Order'),
-            ),
-          ]),
-        ),
-      )).value ?? const SizedBox.shrink(),
     );
   }
 }

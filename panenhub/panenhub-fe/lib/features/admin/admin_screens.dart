@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../core/utils/currency_formatter.dart';
@@ -10,9 +11,10 @@ import '../../core/widgets/app_status_chip.dart';
 import '../../core/widgets/app_loading_state.dart';
 import '../../core/widgets/app_empty_state.dart';
 import '../../core/widgets/app_confirmation_dialog.dart';
+import '../../core/network/services/admin_service.dart';
+import '../../core/network/api_exceptions.dart';
 import '../../providers/app_providers.dart';
 import '../../core/utils/status_mapper.dart';
-import '../../data/mock_data_source.dart';
 
 // ─── ADMIN DASHBOARD ─────────────────────────────────────
 class AdminDashboardScreen extends ConsumerWidget {
@@ -20,6 +22,10 @@ class AdminDashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final disputes = ref.watch(disputeListProvider);
+    final withdrawals = ref.watch(withdrawalListProvider);
+    final dashboard = ref.watch(adminDashboardProvider);
+    final stats = dashboard.valueOrNull;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -72,15 +78,15 @@ class AdminDashboardScreen extends ConsumerWidget {
               Text('Statistik Platform', style: AppTextStyles.titleMedium),
             ]),
             const SizedBox(height: 14),
-            _AdminStatCard(icon: Icons.person_add, label: 'Menunggu Verifikasi', value: '2', color: AppColors.warning),
+            _AdminStatCard(icon: Icons.person_add, label: 'Menunggu Verifikasi', value: '${stats?['pendingVerifications'] ?? 0}', color: AppColors.warning),
             const SizedBox(height: 10),
-            _AdminStatCard(icon: Icons.report_problem, label: 'Sengketa Aktif', value: '${MockDataSource.disputes.length}', color: AppColors.error),
+            _AdminStatCard(icon: Icons.report_problem, label: 'Sengketa Aktif', value: '${disputes.valueOrNull?.length ?? 0}', color: AppColors.error),
             const SizedBox(height: 10),
-            _AdminStatCard(icon: Icons.account_balance_wallet, label: 'Withdrawal Pending', value: '${MockDataSource.withdrawals.length}', color: AppColors.info),
+            _AdminStatCard(icon: Icons.account_balance_wallet, label: 'Withdrawal Pending', value: '${withdrawals.valueOrNull?.length ?? 0}', color: AppColors.info),
             const SizedBox(height: 10),
-            _AdminStatCard(icon: Icons.receipt_long, label: 'Total Transaksi', value: '${MockDataSource.orders.length}', color: AppColors.primary),
+            _AdminStatCard(icon: Icons.receipt_long, label: 'Total Transaksi', value: '${stats?['totalOrders'] ?? 0}', color: AppColors.primary),
             const SizedBox(height: 10),
-            _AdminStatCard(icon: Icons.eco, label: 'Komoditas Aktif', value: '${MockDataSource.commodities.where((c) => c.isActive).length}', color: AppColors.success),
+            _AdminStatCard(icon: Icons.eco, label: 'Komoditas Aktif', value: '${stats?['activeCommodities'] ?? 0}', color: AppColors.success),
           ]),
         ),
       ),
@@ -143,16 +149,24 @@ class UserVerificationScreen extends ConsumerWidget {
                 ]),
                 const SizedBox(height: 12),
                 Row(children: [
-                  Expanded(child: OutlinedButton(onPressed: () {
-                    MockDataSource.notifications.removeWhere((n) => n.title.contains(u.name));
-                    ref.invalidate(pendingUsersProvider);
-                    ref.invalidate(notificationListProvider);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun ditolak'), backgroundColor: AppColors.error));
+                  Expanded(child: OutlinedButton(onPressed: () async {
+                    try {
+                      await AdminService().verifyFarmer(u.id, action: 'reject');
+                      ref.invalidate(pendingUsersProvider);
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun ditolak'), backgroundColor: AppColors.error));
+                    } on DioException catch (e) {
+                      if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal menolak akun.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+                    }
                   }, style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error)), child: const Text('Tolak'))),
                   const SizedBox(width: 10),
-                  Expanded(child: ElevatedButton(onPressed: () {
-                    ref.invalidate(pendingUsersProvider);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun diverifikasi!'), backgroundColor: AppColors.success));
+                  Expanded(child: ElevatedButton(onPressed: () async {
+                    try {
+                      await AdminService().verifyFarmer(u.id, action: 'approve');
+                      ref.invalidate(pendingUsersProvider);
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Akun diverifikasi!'), backgroundColor: AppColors.success));
+                    } on DioException catch (e) {
+                      if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal verifikasi akun.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+                    }
                   }, child: const Text('Verifikasi'))),
                 ]),
               ]),
@@ -202,18 +216,26 @@ class AdminDisputeListScreen extends ConsumerWidget {
                   Expanded(child: OutlinedButton(onPressed: () async {
                     final r = await AppConfirmationDialog.show(context, title: 'Tolak Sengketa', message: 'Dana escrow akan dicairkan ke petani.', isDanger: true);
                     if (r == true && context.mounted) {
-                      MockDataSource.disputes.removeWhere((e) => e.id == d.id);
-                      ref.invalidate(disputeListProvider);
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sengketa ditolak. Dana dicairkan ke petani.'), backgroundColor: AppColors.success));
+                      try {
+                        await AdminService().decideDispute(d.id, decision: 'reject');
+                        ref.invalidate(disputeListProvider);
+                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sengketa ditolak. Dana dicairkan ke petani.'), backgroundColor: AppColors.success));
+                      } on DioException catch (e) {
+                        if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal memproses.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+                      }
                     }
                   }, style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error)), child: const Text('Tolak'))),
                   const SizedBox(width: 10),
                   Expanded(child: ElevatedButton(onPressed: () async {
                     final r = await AppConfirmationDialog.show(context, title: 'Setujui Refund', message: 'Dana escrow akan dikembalikan ke pelanggan.');
                     if (r == true && context.mounted) {
-                      MockDataSource.disputes.removeWhere((e) => e.id == d.id);
-                      ref.invalidate(disputeListProvider);
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refund disetujui.'), backgroundColor: AppColors.success));
+                      try {
+                        await AdminService().decideDispute(d.id, decision: 'approve_refund');
+                        ref.invalidate(disputeListProvider);
+                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refund disetujui.'), backgroundColor: AppColors.success));
+                      } on DioException catch (e) {
+                        if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal memproses.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+                      }
                     }
                   }, child: const Text('Refund'))),
                 ]),
@@ -254,16 +276,24 @@ class AdminWithdrawalScreen extends ConsumerWidget {
                 Text('a.n. ${w.accountHolderName}', style: AppTextStyles.caption),
                 const SizedBox(height: 12),
                 Row(children: [
-                  Expanded(child: OutlinedButton(onPressed: () {
-                    MockDataSource.withdrawals.removeWhere((e) => e.id == w.id);
-                    ref.invalidate(withdrawalListProvider);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pencairan ditolak'), backgroundColor: AppColors.error));
+                  Expanded(child: OutlinedButton(onPressed: () async {
+                    try {
+                      await AdminService().rejectWithdrawal(w.id, reason: 'Ditolak admin');
+                      ref.invalidate(withdrawalListProvider);
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pencairan ditolak'), backgroundColor: AppColors.error));
+                    } on DioException catch (e) {
+                      if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal memproses.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+                    }
                   }, style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error)), child: const Text('Tolak'))),
                   const SizedBox(width: 10),
-                  Expanded(child: ElevatedButton(onPressed: () {
-                    MockDataSource.withdrawals.removeWhere((e) => e.id == w.id);
-                    ref.invalidate(withdrawalListProvider);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pencairan disetujui!'), backgroundColor: AppColors.success));
+                  Expanded(child: ElevatedButton(onPressed: () async {
+                    try {
+                      await AdminService().approveWithdrawal(w.id);
+                      ref.invalidate(withdrawalListProvider);
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pencairan disetujui!'), backgroundColor: AppColors.success));
+                    } on DioException catch (e) {
+                      if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal memproses.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+                    }
                   }, child: const Text('Approve'))),
                 ]),
               ]),

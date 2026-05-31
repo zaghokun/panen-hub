@@ -1,22 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_text_styles.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../core/utils/validators.dart';
 import '../../core/widgets/app_button.dart';
 import '../../core/widgets/app_text_field.dart';
+import '../../core/network/services/auth_service.dart';
+import '../../core/network/api_exceptions.dart';
+import '../../providers/app_providers.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   final VoidCallback onLogin;
   final VoidCallback onSuccess;
 
   const RegisterScreen({super.key, required this.onLogin, required this.onSuccess});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   String _selectedRole = 'customer';
   bool _isLoading = false;
@@ -53,21 +58,62 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
-    setState(() => _isLoading = false);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _selectedRole == 'farmer'
-                ? 'Pendaftaran berhasil! Akun Anda menunggu verifikasi admin.'
-                : 'Pendaftaran berhasil! Silakan login.',
+    try {
+      final authService = AuthService();
+      if (_selectedRole == 'customer') {
+        await authService.registerCustomer(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          phone: _phoneController.text.trim(),
+          password: _passwordController.text,
+          businessName: _businessNameController.text.trim(),
+          businessType: _businessType,
+          businessAddress: _businessAddressController.text.trim(),
+        );
+      } else {
+        await authService.registerFarmer(
+          name: _nameController.text.trim(),
+          email: _emailController.text.trim(),
+          phone: _phoneController.text.trim(),
+          password: _passwordController.text,
+          farmName: _farmNameController.text.trim(),
+          landArea: double.tryParse(_landAreaController.text) ?? 0,
+          address: _farmAddressController.text.trim(),
+        );
+      }
+
+      if (mounted) {
+        // Refresh auth state with the new user
+        await ref.read(authProvider.notifier).checkSession();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _selectedRole == 'farmer'
+                  ? 'Pendaftaran berhasil! Akun Anda menunggu verifikasi admin.'
+                  : 'Pendaftaran berhasil!',
+            ),
+            backgroundColor: AppColors.success,
           ),
-          backgroundColor: AppColors.success,
-        ),
-      );
-      widget.onSuccess();
+        );
+        widget.onSuccess();
+      }
+    } on DioException catch (e) {
+      if (mounted) {
+        final apiError = e.error;
+        final message = apiError is ApiException ? apiError.message : 'Tidak dapat terhubung ke server.';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: AppColors.error),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tidak dapat terhubung ke server.'), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

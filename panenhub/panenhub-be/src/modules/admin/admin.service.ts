@@ -7,7 +7,7 @@ const notificationService = new NotificationService()
 
 export class AdminService {
   async dashboard() {
-    const [totalUsers, totalFarmers, totalOrders, totalDisputes, pendingWithdrawals, pendingVerifications] =
+    const [totalUsers, totalFarmers, totalOrders, totalDisputes, pendingWithdrawals, pendingVerifications, activeCommodities] =
       await Promise.all([
         prisma.user.count(),
         prisma.user.count({ where: { role: 'farmer' } }),
@@ -15,9 +15,26 @@ export class AdminService {
         prisma.dispute.count({ where: { status: 'submitted' } }),
         prisma.withdrawal.count({ where: { status: 'requested' } }),
         prisma.farmerProfile.count({ where: { verificationStatus: 'pending' } }),
+        prisma.commodity.count({ where: { status: 'active' } }),
       ])
 
-    return { totalUsers, totalFarmers, totalOrders, totalDisputes, pendingWithdrawals, pendingVerifications }
+    return { totalUsers, totalFarmers, totalOrders, totalDisputes, pendingWithdrawals, pendingVerifications, activeCommodities }
+  }
+
+  async listPendingFarmers() {
+    return prisma.user.findMany({
+      where: { role: 'farmer', farmerProfile: { verificationStatus: 'pending' } },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        createdAt: true,
+        farmerProfile: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
   }
 
   async verifyFarmer(userId: string, body: { action: string; notes?: string }) {

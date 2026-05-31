@@ -10,7 +10,6 @@ import '../../core/widgets/app_loading_state.dart';
 import '../../providers/app_providers.dart';
 import '../../shared/enums/app_enums.dart';
 import '../../shared/models/app_models.dart';
-import '../../data/mock_data_source.dart';
 
 // ─── CUSTOMER HOME SCREEN ────────────────────────────────
 class CustomerHomeScreen extends ConsumerWidget {
@@ -141,7 +140,7 @@ class CustomerHomeScreen extends ConsumerWidget {
                 height: 44,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
-                  children: MockDataSource.categories.map((cat) {
+                  children: ['Semua', 'Sayur', 'Buah', 'Bumbu', 'Biji-bijian', 'Umbi', 'Lainnya'].map((cat) {
                     final isFirst = cat == 'Semua';
                     return Padding(
                       padding: const EdgeInsets.only(right: 8),
