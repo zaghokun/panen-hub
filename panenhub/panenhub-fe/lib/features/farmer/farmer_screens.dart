@@ -13,6 +13,7 @@ import '../../core/widgets/app_loading_state.dart';
 import '../../core/widgets/app_empty_state.dart';
 import '../../core/network/services/commodity_service.dart';
 import '../../core/network/services/farmer_service.dart';
+import '../../core/network/services/order_service.dart';
 import '../../core/network/api_exceptions.dart';
 import '../../providers/app_providers.dart';
 import '../../shared/models/app_models.dart';
@@ -310,17 +311,20 @@ class FarmerOrderListScreen extends ConsumerWidget {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: () async {
-                  Navigator.of(ctx).pop();
                   String? courier;
                   String? tracking;
                   if (status == OrderStatus.shipped) {
+                    Navigator.of(ctx).pop();
                     final result = await _askCourierInfo(context);
                     if (result == null) return;
                     courier = result.$1;
                     tracking = result.$2;
+                  } else {
+                    Navigator.of(ctx).pop();
                   }
                   try {
-                    await ref.read(orderListProvider.notifier).updateStatus(order.id, status, courierName: courier, trackingNumber: tracking);
+                    await OrderService().updateStatus(order.id, status: status.toApi(), notes: null, courierName: courier, trackingNumber: tracking);
+                    ref.invalidate(orderListProvider);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                         content: Text('Status diupdate ke ${StatusMapper.orderStatusLabel(status)}'),
