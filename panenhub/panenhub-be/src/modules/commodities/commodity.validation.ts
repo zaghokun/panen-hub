@@ -7,7 +7,7 @@ export const createCommoditySchema = z.object({
     description: z.string().optional(),
     pricePerKg: z.coerce.number().int().positive('Harga harus lebih dari 0.'),
     availableQuotaKg: z.coerce.number().positive('Kuota harus lebih dari 0.'),
-    estimatedHarvestDate: z.coerce.date({ message: 'Format tanggal tidak valid.' }),
+    estimatedHarvestDate: z.string().min(1, 'Tanggal panen wajib diisi.').transform((val) => new Date(val)),
     location: z.string().min(1, 'Lokasi wajib diisi.'),
   }),
 })
@@ -19,7 +19,7 @@ export const updateCommoditySchema = z.object({
     description: z.string().optional(),
     pricePerKg: z.coerce.number().int().positive().optional(),
     availableQuotaKg: z.coerce.number().positive().optional(),
-    estimatedHarvestDate: z.coerce.date().optional(),
+    estimatedHarvestDate: z.string().transform((val) => new Date(val)).optional(),
     location: z.string().min(1).optional(),
     status: z.enum(['active', 'inactive']).optional(),
   }),

@@ -95,9 +95,9 @@ export class CommodityService {
         name: body.name,
         category: body.category,
         description: body.description,
-        pricePerKg: body.pricePerKg,
-        availableQuotaKg: body.availableQuotaKg,
-        estimatedHarvestDate: body.estimatedHarvestDate,
+        pricePerKg: Number(body.pricePerKg),
+        availableQuotaKg: Number(body.availableQuotaKg),
+        estimatedHarvestDate: new Date(body.estimatedHarvestDate),
         location: body.location,
         imageUrl: photoFilename ? getFileUrl('commodities', photoFilename) : null,
       },
@@ -109,12 +109,15 @@ export class CommodityService {
     if (!commodity) throw new AppError('Komoditas tidak ditemukan.', 404)
     if (commodity.farmerId !== farmerId) throw new AppError('Anda tidak memiliki akses ke komoditas ini.', 403)
 
+    const updateData: any = { ...body }
+    if (body.pricePerKg !== undefined) updateData.pricePerKg = Number(body.pricePerKg)
+    if (body.availableQuotaKg !== undefined) updateData.availableQuotaKg = Number(body.availableQuotaKg)
+    if (body.estimatedHarvestDate !== undefined) updateData.estimatedHarvestDate = new Date(body.estimatedHarvestDate)
+    if (photoFilename) updateData.imageUrl = getFileUrl('commodities', photoFilename)
+
     return prisma.commodity.update({
       where: { id },
-      data: {
-        ...body,
-        ...(photoFilename && { imageUrl: getFileUrl('commodities', photoFilename) }),
-      },
+      data: updateData,
     })
   }
 
