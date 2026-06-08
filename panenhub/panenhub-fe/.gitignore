@@ -17,11 +17,13 @@ migrate_working_dir/
 *.ipr
 *.iws
 .idea/
+.idea_modules/
+cmake-build-*/
 
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
 # is commented out by default.
-#.vscode/
+.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -51,7 +53,7 @@ app.*.map.json
 *.config.dart
 *.gr.dart
 
-# Environment variables (PENTING!)
+# Environment variables (PENTING! Berbeda tiap laptop)
 .env
 .env.local
 .env.*.local
@@ -98,3 +100,9 @@ integration_test/generated/
 android/local.properties
 android/.gradle/
 android/key.properties
+android/app/google-services.json
+
+# iOS local config
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/ServiceDefinitions.json

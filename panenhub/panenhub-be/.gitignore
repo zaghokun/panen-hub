@@ -1,11 +1,33 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
+*.js.map
+*.d.ts
+
+# Environment variables (PENTING! Berbeda tiap laptop)
 .env
+.env.local
+.env.*.local
+
+# Local uploads/storage (File hasil testing lokal)
 uploads/*
 !uploads/.gitkeep
 !uploads/commodities/.gitkeep
 !uploads/farms/.gitkeep
 !uploads/qc/.gitkeep
 !uploads/disputes/.gitkeep
-*.js.map
-*.d.ts
+
+# IDE & OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
