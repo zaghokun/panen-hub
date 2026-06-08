@@ -26,4 +26,19 @@ export class ReviewService {
       },
     })
   }
+
+  async listByFarmer(farmerId: string) {
+    return prisma.review.findMany({
+      where: { farmerId },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+  }
 }

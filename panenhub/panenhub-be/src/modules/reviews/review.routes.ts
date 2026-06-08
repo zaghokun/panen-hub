@@ -11,3 +11,8 @@ const controller = new ReviewController()
 export const reviewRoutes = Router({ mergeParams: true })
 reviewRoutes.use(authMiddleware, roleMiddleware('customer'))
 reviewRoutes.post('/', validate(createReviewSchema), controller.create)
+
+// Global review routes — /api/v1/reviews
+export const globalReviewRoutes = Router()
+globalReviewRoutes.use(authMiddleware)
+globalReviewRoutes.get('/', controller.list)

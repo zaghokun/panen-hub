@@ -28,7 +28,28 @@ class FarmerHomeShell extends ConsumerWidget {
       body: IndexedStack(index: index, children: screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: index,
-        onTap: (i) => ref.read(bottomNavIndexProvider.notifier).state = i,
+        onTap: (i) {
+          ref.read(bottomNavIndexProvider.notifier).state = i;
+          switch (i) {
+            case 0:
+              ref.invalidate(walletProvider);
+              ref.invalidate(farmerCommodityListProvider);
+              ref.invalidate(orderListProvider);
+              break;
+            case 1:
+              ref.invalidate(farmerCommodityListProvider);
+              break;
+            case 2:
+              ref.invalidate(orderListProvider);
+              break;
+            case 3:
+              ref.invalidate(walletProvider);
+              break;
+            case 4:
+              ref.read(authProvider.notifier).checkSession();
+              break;
+          }
+        },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), activeIcon: Icon(Icons.dashboard), label: 'Dashboard'),
           BottomNavigationBarItem(icon: Icon(Icons.eco_outlined), activeIcon: Icon(Icons.eco), label: 'Komoditas'),

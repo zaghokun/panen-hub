@@ -9,6 +9,10 @@ import '../../core/widgets/app_loading_state.dart';
 import '../../core/widgets/app_empty_state.dart';
 import '../../providers/app_providers.dart';
 import '../../shared/models/app_models.dart';
+import '../../shared/enums/app_enums.dart';
+import '../../core/widgets/app_confirmation_dialog.dart';
+import '../../core/network/services/admin_service.dart';
+import '../../core/network/services/commodity_service.dart';
 
 // ─── COMMODITY LIST SCREEN ───────────────────────────────
 class CommodityListScreen extends ConsumerStatefulWidget {
@@ -70,21 +74,27 @@ class _CommodityListScreenState extends ConsumerState<CommodityListScreen> {
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: commodities.when(
+            child: RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: () async {
+                ref.invalidate(commodityListProvider(_searchQuery.isEmpty ? null : _searchQuery));
+              },
+              child: commodities.when(
               data: (list) {
-                final filtered = _selectedCategory == 'Semua' ? list : list.where((c) => c.category == _selectedCategory).toList();
+                final filtered = _selectedCategory == 'Semua' ? list : list.where((c) => c.category.toLowerCase() == _selectedCategory.toLowerCase()).toList();
                 if (filtered.isEmpty) {
-                  return const AppEmptyState(icon: Icons.search_off, title: 'Komoditas Tidak Ditemukan', description: 'Belum ada komoditas yang sesuai filter.');
+                  return ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppEmptyState(icon: Icons.search_off, title: 'Komoditas Tidak Ditemukan', description: 'Belum ada komoditas yang sesuai filter.')]);
                 }
                 return ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   itemCount: filtered.length,
                   itemBuilder: (context, i) => _CommodityListCard(commodity: filtered[i], onTap: () => widget.onCommodityTap(filtered[i].id)),
                 );
               },
-              loading: () => const AppLoadingState(),
-              error: (_, __) => const Center(child: Text('Gagal memuat data')),
-            ),
+              loading: () => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppLoadingState()]),
+              error: (_, __) => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [Center(child: Text('Gagal memuat data'))]),
+            )),
           ),
         ],
       ),
@@ -237,14 +247,73 @@ class CommodityDetailScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: c.availableQuotaKg > 0 ? () => onPreOrder(c.id) : null,
-                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
-                      child: Text(c.availableQuotaKg > 0 ? 'Buat Pre-Order — ${CurrencyFormatter.formatPerKg(c.pricePerKg)}' : 'Stok Habis'),
-                    ),
-                  ),
+                  Builder(builder: (ctx) {
+                    final auth = ref.watch(authProvider);
+                    final user = auth.user;
+                    final isOwner = user != null && user.role == UserRole.farmer && c.farmerId == user.id;
+                    final isAdmin = user != null && user.role == UserRole.admin;
+
+                    if (isOwner || isAdmin) {
+                      return SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final confirmed = await AppConfirmationDialog.show(
+                              context,
+                              title: 'Hapus Komoditas',
+                              message: 'Yakin ingin menghapus komoditas ini?',
+                              isDanger: true,
+                            );
+                            if (confirmed == true && context.mounted) {
+                              try {
+                                if (isAdmin) {
+                                  await AdminService().deleteCommodity(c.id);
+                                } else {
+                                  await CommodityService().delete(c.id);
+                                }
+                                ref.invalidate(commodityListProvider);
+                                ref.invalidate(farmerCommodityListProvider);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Komoditas berhasil dihapus'),
+                                      backgroundColor: AppColors.success,
+                                    ),
+                                  );
+                                  Navigator.of(context).pop();
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Gagal menghapus komoditas'),
+                                      backgroundColor: AppColors.error,
+                                    ),
+                                  );
+                                }
+                              }
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.error,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          ),
+                          icon: const Icon(Icons.delete_outline),
+                          label: const Text('Hapus Komoditas'),
+                        ),
+                      );
+                    }
+
+                    return SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: c.availableQuotaKg > 0 ? () => onPreOrder(c.id) : null,
+                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
+                        child: Text(c.availableQuotaKg > 0 ? 'Buat Pre-Order — ${CurrencyFormatter.formatPerKg(c.pricePerKg)}' : 'Stok Habis'),
+                      ),
+                    );
+                  }),
                   const SizedBox(height: 24),
                 ]),
               ),

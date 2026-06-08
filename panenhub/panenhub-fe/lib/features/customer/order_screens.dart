@@ -182,10 +182,16 @@ class OrderListScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Pesanan Saya')),
-      body: orders.when(
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          ref.invalidate(orderListProvider);
+        },
+        child: orders.when(
         data: (list) {
-          if (list.isEmpty) return const AppEmptyState(icon: Icons.receipt_long_outlined, title: 'Belum Ada Pesanan', description: 'Belum ada pre-order aktif. Cari komoditas segar dan mulai booking panen.');
+          if (list.isEmpty) return ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppEmptyState(icon: Icons.receipt_long_outlined, title: 'Belum Ada Pesanan', description: 'Belum ada pre-order aktif. Cari komoditas segar dan mulai booking panen.')]);
           return ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(20),
             itemCount: list.length,
             itemBuilder: (context, i) {
@@ -216,8 +222,9 @@ class OrderListScreen extends ConsumerWidget {
             },
           );
         },
-        loading: () => const AppLoadingState(),
-        error: (_, __) => const Center(child: Text('Gagal memuat pesanan')),
+        loading: () => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppLoadingState()]),
+        error: (_, __) => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [Center(child: Text('Gagal memuat pesanan'))]),
+        ),
       ),
     );
   }
@@ -298,6 +305,7 @@ class OrderDetailScreen extends ConsumerWidget {
                     try {
                       await QcService().submit(o.id, conditionStatus: 'good', quantityStatus: 'complete');
                       ref.invalidate(orderListProvider);
+                      ref.invalidate(walletProvider);
                       if (context.mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('QC berhasil. Pesanan selesai, dana dirilis ke petani.'), backgroundColor: AppColors.success)); Navigator.of(context).pop(); }
                     } on DioException catch (e) {
                       if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal submit QC.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
@@ -315,6 +323,7 @@ class OrderDetailScreen extends ConsumerWidget {
                   try {
                     await PaymentService().create(o.id);
                     ref.invalidate(orderListProvider);
+                    ref.invalidate(walletProvider);
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pembayaran berhasil! Dana ditahan di escrow.'), backgroundColor: AppColors.success));
                       Navigator.of(context).pop();

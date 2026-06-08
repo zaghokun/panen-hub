@@ -15,6 +15,7 @@ import '../../core/network/services/admin_service.dart';
 import '../../core/network/api_exceptions.dart';
 import '../../providers/app_providers.dart';
 import '../../core/utils/status_mapper.dart';
+import '../../shared/enums/app_enums.dart';
 
 // ─── ADMIN DASHBOARD ─────────────────────────────────────
 class AdminDashboardScreen extends ConsumerWidget {
@@ -22,14 +23,19 @@ class AdminDashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final disputes = ref.watch(disputeListProvider);
-    final withdrawals = ref.watch(withdrawalListProvider);
-    final dashboard = ref.watch(adminDashboardProvider);
-    final stats = dashboard.valueOrNull;
+    final stats = ref.watch(adminDashboardProvider).valueOrNull;
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () async {
+            ref.invalidate(disputeListProvider);
+            ref.invalidate(withdrawalListProvider);
+            ref.invalidate(adminDashboardProvider);
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(20),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // Premium admin header
@@ -63,11 +69,11 @@ class AdminDashboardScreen extends ConsumerWidget {
                     child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 24),
                   ),
                   const SizedBox(width: 14),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('Dashboard Admin', style: AppTextStyles.headlineMedium.copyWith(color: Colors.white)),
                     const SizedBox(height: 2),
                     Text('Ringkasan kondisi platform', style: AppTextStyles.bodySmall.copyWith(color: Colors.white.withValues(alpha: 0.8))),
-                  ]),
+                  ])),
                 ]),
               ]),
             ),
@@ -80,14 +86,15 @@ class AdminDashboardScreen extends ConsumerWidget {
             const SizedBox(height: 14),
             _AdminStatCard(icon: Icons.person_add, label: 'Menunggu Verifikasi', value: '${stats?['pendingVerifications'] ?? 0}', color: AppColors.warning),
             const SizedBox(height: 10),
-            _AdminStatCard(icon: Icons.report_problem, label: 'Sengketa Aktif', value: '${disputes.valueOrNull?.length ?? 0}', color: AppColors.error),
+            _AdminStatCard(icon: Icons.report_problem, label: 'Sengketa Aktif', value: '${stats?['totalDisputes'] ?? 0}', color: AppColors.error),
             const SizedBox(height: 10),
-            _AdminStatCard(icon: Icons.account_balance_wallet, label: 'Withdrawal Pending', value: '${withdrawals.valueOrNull?.length ?? 0}', color: AppColors.info),
+            _AdminStatCard(icon: Icons.account_balance_wallet, label: 'Withdrawal Pending', value: '${stats?['pendingWithdrawals'] ?? 0}', color: AppColors.info),
             const SizedBox(height: 10),
             _AdminStatCard(icon: Icons.receipt_long, label: 'Total Transaksi', value: '${stats?['totalOrders'] ?? 0}', color: AppColors.primary),
             const SizedBox(height: 10),
             _AdminStatCard(icon: Icons.eco, label: 'Komoditas Aktif', value: '${stats?['activeCommodities'] ?? 0}', color: AppColors.success),
           ]),
+        ),
         ),
       ),
     );
@@ -133,10 +140,15 @@ class UserVerificationScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Verifikasi Pengguna')),
-      body: pending.when(
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          ref.invalidate(pendingUsersProvider);
+        },
+        child: pending.when(
         data: (users) {
-          if (users.isEmpty) return const AppEmptyState(icon: Icons.verified_user, title: 'Semua Terverifikasi', description: 'Tidak ada akun yang menunggu verifikasi.');
-          return ListView.builder(padding: const EdgeInsets.all(20), itemCount: users.length, itemBuilder: (context, i) {
+          if (users.isEmpty) return ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppEmptyState(icon: Icons.verified_user, title: 'Semua Terverifikasi', description: 'Tidak ada akun yang menunggu verifikasi.')]);
+          return ListView.builder(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(20), itemCount: users.length, itemBuilder: (context, i) {
             final u = users[i];
             return Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border.withValues(alpha: 0.5))),
@@ -173,8 +185,9 @@ class UserVerificationScreen extends ConsumerWidget {
             );
           });
         },
-        loading: () => const AppLoadingState(),
-        error: (_, __) => const Center(child: Text('Gagal memuat')),
+        loading: () => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppLoadingState()]),
+        error: (_, __) => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [Center(child: Text('Gagal memuat'))]),
+        ),
       ),
     );
   }
@@ -190,10 +203,15 @@ class AdminDisputeListScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Sengketa')),
-      body: disputes.when(
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          ref.invalidate(disputeListProvider);
+        },
+        child: disputes.when(
         data: (list) {
-          if (list.isEmpty) return const AppEmptyState(icon: Icons.gavel, title: 'Tidak Ada Sengketa', description: 'Tidak ada sengketa yang perlu ditinjau.');
-          return ListView.builder(padding: const EdgeInsets.all(20), itemCount: list.length, itemBuilder: (context, i) {
+          if (list.isEmpty) return ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppEmptyState(icon: Icons.gavel, title: 'Tidak Ada Sengketa', description: 'Tidak ada sengketa yang perlu ditinjau.')]);
+          return ListView.builder(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(20), itemCount: list.length, itemBuilder: (context, i) {
             final d = list[i];
             return Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border.withValues(alpha: 0.5))),
@@ -243,8 +261,9 @@ class AdminDisputeListScreen extends ConsumerWidget {
             );
           });
         },
-        loading: () => const AppLoadingState(),
-        error: (_, __) => const Center(child: Text('Gagal memuat')),
+        loading: () => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppLoadingState()]),
+        error: (_, __) => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [Center(child: Text('Gagal memuat'))]),
+        ),
       ),
     );
   }
@@ -260,48 +279,64 @@ class AdminWithdrawalScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Pencairan Dana')),
-      body: withdrawals.when(
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          ref.invalidate(withdrawalListProvider);
+        },
+        child: withdrawals.when(
         data: (list) {
-          if (list.isEmpty) return const AppEmptyState(icon: Icons.account_balance_wallet, title: 'Tidak Ada Request', description: 'Belum ada pencairan yang perlu diproses.');
-          return ListView.builder(padding: const EdgeInsets.all(20), itemCount: list.length, itemBuilder: (context, i) {
+          if (list.isEmpty) return ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppEmptyState(icon: Icons.account_balance_wallet, title: 'Tidak Ada Request', description: 'Belum ada pencairan yang perlu diproses.')]);
+          return ListView.builder(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(20), itemCount: list.length, itemBuilder: (context, i) {
             final w = list[i];
+            final statusColor = switch (w.status) {
+              WithdrawalStatus.requested => AppColors.warning,
+              WithdrawalStatus.approved || WithdrawalStatus.paid => AppColors.success,
+              WithdrawalStatus.rejected => AppColors.error,
+              _ => AppColors.textSecondary,
+            };
             return Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border.withValues(alpha: 0.5))),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [Expanded(child: Text(w.farmerName, style: AppTextStyles.labelLarge)), AppStatusChip(label: StatusMapper.withdrawalStatusLabel(w.status), color: AppColors.warning)]),
+                Row(children: [Expanded(child: Text(w.farmerName, style: AppTextStyles.labelLarge)), AppStatusChip(label: StatusMapper.withdrawalStatusLabel(w.status), color: statusColor)]),
                 const SizedBox(height: 8),
                 Text(CurrencyFormatter.format(w.amount), style: AppTextStyles.headlineMedium.copyWith(color: AppColors.primary)),
                 const SizedBox(height: 4),
                 Text('${w.bankName} · ${w.accountNumber}', style: AppTextStyles.caption),
                 Text('a.n. ${w.accountHolderName}', style: AppTextStyles.caption),
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(child: OutlinedButton(onPressed: () async {
-                    try {
-                      await AdminService().rejectWithdrawal(w.id, reason: 'Ditolak admin');
-                      ref.invalidate(withdrawalListProvider);
-                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pencairan ditolak'), backgroundColor: AppColors.error));
-                    } on DioException catch (e) {
-                      if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal memproses.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
-                    }
-                  }, style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error)), child: const Text('Tolak'))),
-                  const SizedBox(width: 10),
-                  Expanded(child: ElevatedButton(onPressed: () async {
-                    try {
-                      await AdminService().approveWithdrawal(w.id);
-                      ref.invalidate(withdrawalListProvider);
-                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pencairan disetujui!'), backgroundColor: AppColors.success));
-                    } on DioException catch (e) {
-                      if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal memproses.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
-                    }
-                  }, child: const Text('Approve'))),
-                ]),
+                if (w.status == WithdrawalStatus.requested) ...[
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(child: OutlinedButton(onPressed: () async {
+                      try {
+                        await AdminService().rejectWithdrawal(w.id, reason: 'Ditolak admin');
+                        ref.invalidate(withdrawalListProvider);
+                        ref.invalidate(adminDashboardProvider);
+                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pencairan ditolak'), backgroundColor: AppColors.error));
+                      } on DioException catch (e) {
+                        if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal memproses.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+                      }
+                    }, style: OutlinedButton.styleFrom(foregroundColor: AppColors.error, side: const BorderSide(color: AppColors.error)), child: const Text('Tolak'))),
+                    const SizedBox(width: 10),
+                    Expanded(child: ElevatedButton(onPressed: () async {
+                      try {
+                        await AdminService().approveWithdrawal(w.id);
+                        ref.invalidate(withdrawalListProvider);
+                        ref.invalidate(adminDashboardProvider);
+                        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pencairan disetujui!'), backgroundColor: AppColors.success));
+                      } on DioException catch (e) {
+                        if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal memproses.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+                      }
+                    }, child: const Text('Approve'))),
+                  ]),
+                ],
               ]),
             );
           });
         },
-        loading: () => const AppLoadingState(),
-        error: (_, __) => const Center(child: Text('Gagal memuat')),
+        loading: () => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppLoadingState()]),
+        error: (_, __) => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [Center(child: Text('Gagal memuat'))]),
+        ),
       ),
     );
   }
@@ -321,7 +356,12 @@ class ProfileScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Profil')),
-      body: SingleChildScrollView(padding: const EdgeInsets.all(20), child: Column(children: [
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          await ref.read(authProvider.notifier).checkSession();
+        },
+        child: SingleChildScrollView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(20), child: Column(children: [
         CircleAvatar(radius: 40, backgroundColor: AppColors.primarySurface, child: Text(u.name[0], style: AppTextStyles.displayMedium.copyWith(color: AppColors.primary))),
         const SizedBox(height: 12),
         Text(u.name, style: AppTextStyles.headlineMedium),
@@ -338,6 +378,7 @@ class ProfileScreen extends ConsumerWidget {
           if (confirmed == true) { ref.read(authProvider.notifier).logout(); onLogout(); }
         }),
       ])),
+      ),
     );
   }
 }
@@ -364,10 +405,15 @@ class NotificationListScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Notifikasi')),
-      body: notifs.when(
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          ref.invalidate(notificationListProvider);
+        },
+        child: notifs.when(
         data: (list) {
-          if (list.isEmpty) return const AppEmptyState(icon: Icons.notifications_none, title: 'Tidak Ada Notifikasi', description: 'Belum ada notifikasi baru.');
-          return ListView.builder(padding: const EdgeInsets.all(20), itemCount: list.length, itemBuilder: (context, i) {
+          if (list.isEmpty) return ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppEmptyState(icon: Icons.notifications_none, title: 'Tidak Ada Notifikasi', description: 'Belum ada notifikasi baru.')]);
+          return ListView.builder(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(20), itemCount: list.length, itemBuilder: (context, i) {
             final n = list[i];
             return GestureDetector(
               onTap: () {
@@ -390,8 +436,9 @@ class NotificationListScreen extends ConsumerWidget {
             );
           });
         },
-        loading: () => const AppLoadingState(),
-        error: (_, __) => const Center(child: Text('Gagal memuat')),
+        loading: () => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppLoadingState()]),
+        error: (_, __) => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [Center(child: Text('Gagal memuat'))]),
+        ),
       ),
     );
   }

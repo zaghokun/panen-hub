@@ -6,7 +6,7 @@ class Env {
 
   static const baseUrl = String.fromEnvironment(
     'BASE_URL',
-    defaultValue: 'http://localhost:3000/api/v1',
+    defaultValue: 'http://192.168.137.1:3000/api/v1',
   );
 
   static const useMockData = bool.fromEnvironment(

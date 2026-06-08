@@ -128,6 +128,7 @@ class Commodity {
       location: json['location'] as String,
       imageUrls: json['imageUrl'] != null ? [json['imageUrl'] as String] : [],
       isActive: json['status'] == 'active',
+      farmerRating: (json['farmerRating'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }

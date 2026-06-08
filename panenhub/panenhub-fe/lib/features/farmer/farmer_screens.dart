@@ -35,7 +35,15 @@ class FarmerDashboardScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () async {
+            ref.invalidate(walletProvider);
+            ref.invalidate(farmerCommodityListProvider);
+            ref.invalidate(orderListProvider);
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.all(20),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // Premium greeting card
@@ -117,6 +125,7 @@ class FarmerDashboardScreen extends ConsumerWidget {
             AppButton(label: 'Posting Estimasi Panen', icon: Icons.add_circle_outline, onPressed: onAddCommodity),
             const SizedBox(height: 32),
           ]),
+          ),
         ),
       ),
     );
@@ -174,10 +183,15 @@ class FarmerCommodityListScreen extends ConsumerWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Komoditas Saya')),
       floatingActionButton: FloatingActionButton(onPressed: onAdd, backgroundColor: AppColors.primary, child: const Icon(Icons.add, color: Colors.white)),
-      body: commodities.when(
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          ref.invalidate(farmerCommodityListProvider);
+        },
+        child: commodities.when(
         data: (list) {
-          if (list.isEmpty) return const AppEmptyState(icon: Icons.eco_outlined, title: 'Belum Ada Komoditas', description: 'Posting estimasi panen pertama Anda.');
-          return ListView.builder(padding: const EdgeInsets.all(20), itemCount: list.length, itemBuilder: (context, i) {
+          if (list.isEmpty) return ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppEmptyState(icon: Icons.eco_outlined, title: 'Belum Ada Komoditas', description: 'Posting estimasi panen pertama Anda.')]);
+          return ListView.builder(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(20), itemCount: list.length, itemBuilder: (context, i) {
             final c = list[i];
             return GestureDetector(
               onTap: onCommodityTap != null ? () => onCommodityTap!(c.id) : null,
@@ -201,9 +215,9 @@ class FarmerCommodityListScreen extends ConsumerWidget {
             );
           });
         },
-        loading: () => const AppLoadingState(),
-        error: (_, __) => const Center(child: Text('Gagal memuat data')),
-      ),
+        loading: () => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppLoadingState()]),
+        error: (_, __) => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [Center(child: Text('Gagal memuat data'))]),
+      )),
     );
   }
 }
@@ -379,10 +393,15 @@ class FarmerOrderListScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Pesanan Masuk')),
-      body: orders.when(
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          ref.invalidate(orderListProvider);
+        },
+        child: orders.when(
         data: (list) {
-          if (list.isEmpty) return const AppEmptyState(icon: Icons.receipt_long_outlined, title: 'Belum Ada Pesanan', description: 'Belum ada pre-order masuk.');
-          return ListView.builder(padding: const EdgeInsets.all(20), itemCount: list.length, itemBuilder: (context, i) {
+          if (list.isEmpty) return ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppEmptyState(icon: Icons.receipt_long_outlined, title: 'Belum Ada Pesanan', description: 'Belum ada pre-order masuk.')]);
+          return ListView.builder(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(20), itemCount: list.length, itemBuilder: (context, i) {
             final o = list[i];
             return GestureDetector(
               onTap: () => onOrderTap(o.id),
@@ -412,9 +431,9 @@ class FarmerOrderListScreen extends ConsumerWidget {
             );
           });
         },
-        loading: () => const AppLoadingState(),
-        error: (_, __) => const Center(child: Text('Gagal memuat')),
-      ),
+        loading: () => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppLoadingState()]),
+        error: (_, __) => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [Center(child: Text('Gagal memuat'))]),
+      )),
     );
   }
 }
@@ -430,8 +449,13 @@ class FarmerWalletScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Keuangan')),
-      body: wallet.when(
-        data: (w) => SingleChildScrollView(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      body: RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          ref.invalidate(walletProvider);
+        },
+        child: wallet.when(
+        data: (w) => SingleChildScrollView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(
             width: double.infinity, padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, AppColors.primaryDark]), borderRadius: BorderRadius.circular(20)),
@@ -458,9 +482,9 @@ class FarmerWalletScreen extends ConsumerWidget {
           const SizedBox(height: 24),
           AppButton(label: 'Ajukan Pencairan Dana', icon: Icons.account_balance_outlined, onPressed: onWithdraw),
         ])),
-        loading: () => const AppLoadingState(),
-        error: (_, __) => const Center(child: Text('Gagal memuat')),
-      ),
+        loading: () => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [AppLoadingState()]),
+        error: (_, __) => ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [Center(child: Text('Gagal memuat'))]),
+      )),
     );
   }
 }

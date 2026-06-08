@@ -31,7 +31,7 @@ import { farmerProfileRoutes } from './modules/farmer/profile/farmer-profile.rou
 import { walletRoutes } from './modules/farmer/wallet/wallet.routes'
 import { withdrawalRoutes } from './modules/farmer/withdrawals/withdrawal.routes'
 import { adminRoutes } from './modules/admin/admin.routes'
-import { reviewRoutes } from './modules/reviews/review.routes'
+import { reviewRoutes, globalReviewRoutes } from './modules/reviews/review.routes'
 import { notificationRoutes } from './modules/notifications/notification.routes'
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/commodities', publicCommodityRoutes)
@@ -45,6 +45,7 @@ app.use('/api/v1/orders/:id/payments', paymentRoutes)
 app.use('/api/v1/orders/:id/qc', qcRoutes)
 app.use('/api/v1/orders/:id/disputes', disputeCreateRoutes)
 app.use('/api/v1/orders/:id/reviews', reviewRoutes)
+app.use('/api/v1/reviews', globalReviewRoutes)
 app.use('/api/v1/disputes', disputeDetailRoutes)
 app.use('/api/v1/notifications', notificationRoutes)
 app.use('/api/v1/admin', adminRoutes)

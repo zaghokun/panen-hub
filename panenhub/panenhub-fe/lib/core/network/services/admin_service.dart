@@ -56,4 +56,8 @@ class AdminService {
     final items = res.data['data'] as List;
     return items.map((e) => AppUser.fromJson(e)).toList();
   }
+
+  Future<void> deleteCommodity(String id) async {
+    await _dio.delete('/admin/commodities/$id');
+  }
 }

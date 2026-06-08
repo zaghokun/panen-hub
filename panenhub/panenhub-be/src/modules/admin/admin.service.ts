@@ -122,7 +122,6 @@ export class AdminService {
           where: { farmerId: dispute.farmerId },
           data: {
             balanceAvailable: { increment: dispute.order.totalPrice },
-            totalEarned: { increment: dispute.order.totalPrice },
           },
         })
 
@@ -154,9 +153,21 @@ export class AdminService {
     if (!withdrawal) throw new AppError('Withdrawal tidak ditemukan.', 404)
     if (withdrawal.status !== 'requested') throw new AppError('Withdrawal sudah diproses.', 400)
 
-    const updated = await prisma.withdrawal.update({
-      where: { id: withdrawalId },
-      data: { status: 'approved', adminNotes: body.notes, processedAt: new Date() },
+    const updated = await prisma.$transaction(async (tx) => {
+      const result = await tx.withdrawal.update({
+        where: { id: withdrawalId },
+        data: { status: 'approved', adminNotes: body.notes, processedAt: new Date() },
+      })
+
+      // Update wallet: record disbursement
+      await tx.wallet.update({
+        where: { farmerId: withdrawal.farmerId },
+        data: {
+          totalEarned: { increment: withdrawal.amount },
+        },
+      })
+
+      return result
     })
 
     await notificationService.create({
@@ -203,6 +214,15 @@ export class AdminService {
     return updated
   }
 
+  async deleteCommodity(id: string) {
+    const commodity = await prisma.commodity.findUnique({ where: { id } })
+    if (!commodity) throw new AppError('Komoditas tidak ditemukan.', 404)
+    return prisma.commodity.update({
+      where: { id },
+      data: { status: 'disabled' },
+    })
+  }
+
   async listWithdrawals(query: { page?: string; per_page?: string }) {
     const page = Math.max(1, parseInt(query.page || '1', 10))
     const perPage = Math.min(100, Math.max(1, parseInt(query.per_page || '10', 10)))
@@ -210,12 +230,13 @@ export class AdminService {
 
     const [data, total] = await Promise.all([
       prisma.withdrawal.findMany({
+        where: { status: 'requested' },
         skip,
         take: perPage,
         orderBy: { requestedAt: 'desc' },
         include: { farmer: { select: { name: true, email: true } } },
       }),
-      prisma.withdrawal.count(),
+      prisma.withdrawal.count({ where: { status: 'requested' } }),
     ])
 
     return { data, meta: { page, per_page: perPage, total, total_pages: Math.ceil(total / perPage) } }
@@ -228,6 +249,9 @@ export class AdminService {
 
     const [data, total] = await Promise.all([
       prisma.dispute.findMany({
+        where: {
+          status: { in: ['submitted', 'under_review'] },
+        },
         skip,
         take: perPage,
         orderBy: { createdAt: 'desc' },
@@ -237,7 +261,11 @@ export class AdminService {
           order: { select: { totalPrice: true, commodity: { select: { name: true } } } },
         },
       }),
-      prisma.dispute.count(),
+      prisma.dispute.count({
+        where: {
+          status: { in: ['submitted', 'under_review'] },
+        },
+      }),
     ])
 
     return { data, meta: { page, per_page: perPage, total, total_pages: Math.ceil(total / perPage) } }

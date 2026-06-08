@@ -22,7 +22,28 @@ class AdminHomeShell extends ConsumerWidget {
       body: IndexedStack(index: index, children: screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: index,
-        onTap: (i) => ref.read(bottomNavIndexProvider.notifier).state = i,
+        onTap: (i) {
+          ref.read(bottomNavIndexProvider.notifier).state = i;
+          switch (i) {
+            case 0:
+              ref.invalidate(adminDashboardProvider);
+              ref.invalidate(disputeListProvider);
+              ref.invalidate(withdrawalListProvider);
+              break;
+            case 1:
+              ref.invalidate(pendingUsersProvider);
+              break;
+            case 2:
+              ref.invalidate(disputeListProvider);
+              break;
+            case 3:
+              ref.invalidate(withdrawalListProvider);
+              break;
+            case 4:
+              ref.read(authProvider.notifier).checkSession();
+              break;
+          }
+        },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard_outlined), activeIcon: Icon(Icons.dashboard), label: 'Dashboard'),
           BottomNavigationBarItem(icon: Icon(Icons.verified_user_outlined), activeIcon: Icon(Icons.verified_user), label: 'Verifikasi'),

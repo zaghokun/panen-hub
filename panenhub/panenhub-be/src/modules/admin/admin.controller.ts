@@ -76,4 +76,13 @@ export class AdminController {
       next(error)
     }
   }
+
+  deleteCommodity = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await this.service.deleteCommodity(req.params.id)
+      res.json(successResponse(null, 'Komoditas berhasil dinonaktifkan.'))
+    } catch (error) {
+      next(error)
+    }
+  }
 }

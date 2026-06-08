@@ -9,6 +9,7 @@ import '../core/network/services/payment_service.dart';
 import '../core/network/services/farmer_service.dart';
 import '../core/network/services/admin_service.dart';
 import '../core/network/services/notification_service.dart';
+import '../core/network/services/review_service.dart';
 import '../core/network/token_storage.dart';
 import '../core/network/api_exceptions.dart';
 
@@ -152,7 +153,7 @@ final orderListProvider = StateNotifierProvider<OrderListNotifier, AsyncValue<Li
   return OrderListNotifier(ref);
 });
 
-final orderDetailProvider = FutureProvider.family<PreOrder, String>((ref, id) async {
+final orderDetailProvider = FutureProvider.autoDispose.family<PreOrder, String>((ref, id) async {
   return _orderService.detail(id);
 });
 
@@ -168,7 +169,7 @@ final paymentProvider = FutureProvider.family<Payment, String>((ref, orderId) as
 
 final _farmerService = FarmerService();
 
-final walletProvider = FutureProvider<WalletSummary>((ref) async {
+final walletProvider = FutureProvider.autoDispose<WalletSummary>((ref) async {
   return _farmerService.getWallet();
 });
 
@@ -186,16 +187,16 @@ final disputeListProvider = FutureProvider<List<Dispute>>((ref) async {
 
 // ─── WITHDRAWAL PROVIDERS ───────────────────────────────
 
-final withdrawalListProvider = FutureProvider<List<Withdrawal>>((ref) async {
+final withdrawalListProvider = FutureProvider.autoDispose<List<Withdrawal>>((ref) async {
   return _adminService.listWithdrawals();
 });
 
 // ─── REVIEW PROVIDERS ───────────────────────────────────
 
-// Note: Backend doesn't have a "list reviews by farmer" endpoint yet.
-// For now, return empty. Can be added later.
+final _reviewService = ReviewService();
+
 final reviewListProvider = FutureProvider.family<List<Review>, String>((ref, farmerId) async {
-  return [];
+  return _reviewService.fetchByFarmer(farmerId);
 });
 
 // ─── NOTIFICATION PROVIDERS ─────────────────────────────

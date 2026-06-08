@@ -28,7 +28,14 @@ class CustomerHomeScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () async {
+            ref.invalidate(orderListProvider);
+            ref.invalidate(commodityListProvider(null));
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,6 +286,7 @@ class CustomerHomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 32),
             ],
+          ),
           ),
         ),
       ),

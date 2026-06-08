@@ -13,4 +13,18 @@ export class ReviewController {
       next(error)
     }
   }
+
+  list = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const farmerId = req.query.farmerId as string
+      if (!farmerId) {
+        res.status(400).json({ success: false, message: 'farmerId wajib diisi.' })
+        return
+      }
+      const data = await this.service.listByFarmer(farmerId)
+      res.json(successResponse(data))
+    } catch (error) {
+      next(error)
+    }
+  }
 }

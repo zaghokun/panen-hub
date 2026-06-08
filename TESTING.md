@@ -88,7 +88,7 @@ flutter run -d chrome
 |---|---|---|
 | Admin | `admin@panenhub.test` | `admin123` |
 | Farmer | `farmer@panenhub.test` | `farmer123` |
-| Customer | `customer@panenhub.test` | `customer123` |
+    | Customer | `customer@panenhub.test` | `customer123` |
 
 ---
 

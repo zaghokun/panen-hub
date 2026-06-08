@@ -188,6 +188,11 @@ class AppTheme {
         ),
         surfaceTintColor: Colors.transparent,
       ),
+      textSelectionTheme: const TextSelectionThemeData(
+        cursorColor: Colors.black,
+        selectionColor: Color(0xFFE0E0E0),
+        selectionHandleColor: Colors.black,
+      ),
       splashFactory: InkSparkle.splashFactory,
     );
   }

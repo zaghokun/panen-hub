@@ -18,4 +18,12 @@ class ReviewService {
     });
     return Review.fromJson(res.data['data']);
   }
+
+  Future<List<Review>> fetchByFarmer(String farmerId) async {
+    final res = await _dio.get('/reviews', queryParameters: {
+      'farmerId': farmerId,
+    });
+    final items = res.data['data'] as List;
+    return items.map((e) => Review.fromJson(e)).toList();
+  }
 }

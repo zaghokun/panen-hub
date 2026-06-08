@@ -101,7 +101,7 @@ export class AuthService {
         farmerProfile: {
           create: {
             farmName: body.farmName,
-            landArea: body.landArea,
+            landArea: Number(body.landArea),
             address: body.address,
             latitude: body.latitude,
             longitude: body.longitude,

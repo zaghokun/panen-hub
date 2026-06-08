@@ -30,7 +30,27 @@ class CustomerHomeShell extends ConsumerWidget {
       body: IndexedStack(index: index, children: screens),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: index,
-        onTap: (i) => ref.read(bottomNavIndexProvider.notifier).state = i,
+        onTap: (i) {
+          ref.read(bottomNavIndexProvider.notifier).state = i;
+          switch (i) {
+            case 0:
+              ref.invalidate(orderListProvider);
+              ref.invalidate(commodityListProvider);
+              break;
+            case 1:
+              ref.invalidate(commodityListProvider);
+              break;
+            case 2:
+              ref.invalidate(orderListProvider);
+              break;
+            case 3:
+              ref.invalidate(notificationListProvider);
+              break;
+            case 4:
+              ref.read(authProvider.notifier).checkSession();
+              break;
+          }
+        },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Beranda'),
           BottomNavigationBarItem(icon: Icon(Icons.search_outlined), activeIcon: Icon(Icons.search), label: 'Cari'),

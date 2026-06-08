@@ -52,7 +52,35 @@ export class CommodityService {
       prisma.commodity.count({ where }),
     ])
 
-    return { data, meta: buildPaginationMeta(page, perPage, total) }
+    // Get all unique farmerIds in the returned data
+    const farmerIds = Array.from(new Set(data.map(c => c.farmerId)))
+
+    // Group reviews by farmerId and calculate average rating
+    const ratings = await prisma.review.groupBy({
+      by: ['farmerId'],
+      _avg: {
+        rating: true,
+      },
+      where: {
+        farmerId: {
+          in: farmerIds,
+        },
+      },
+    })
+
+    // Create a map of farmerId -> average rating
+    const ratingMap = new Map<string, number>()
+    for (const r of ratings) {
+      ratingMap.set(r.farmerId, r._avg.rating || 0.0)
+    }
+
+    // Attach farmerRating to each commodity
+    const dataWithRatings = data.map(c => ({
+      ...c,
+      farmerRating: ratingMap.get(c.farmerId) || 0.0,
+    }))
+
+    return { data: dataWithRatings, meta: buildPaginationMeta(page, perPage, total) }
   }
 
   async getDetail(id: string) {
@@ -72,7 +100,20 @@ export class CommodityService {
     if (!commodity) throw new AppError('Komoditas tidak ditemukan.', 404)
     if (commodity.status !== 'active') throw new AppError('Komoditas tidak tersedia.', 404)
 
-    return commodity
+    // Calculate dynamic rating
+    const aggregate = await prisma.review.aggregate({
+      _avg: {
+        rating: true,
+      },
+      where: {
+        farmerId: commodity.farmerId,
+      },
+    })
+
+    return {
+      ...commodity,
+      farmerRating: aggregate._avg.rating || 0.0,
+    }
   }
 
   async listByFarmer(farmerId: string, query: { page?: string; per_page?: string }) {

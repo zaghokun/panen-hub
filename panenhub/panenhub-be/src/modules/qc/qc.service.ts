@@ -57,7 +57,6 @@ export class QcService {
           where: { farmerId: order.farmerId },
           data: {
             balanceAvailable: { increment: order.totalPrice },
-            totalEarned: { increment: order.totalPrice },
           },
         })
       }
