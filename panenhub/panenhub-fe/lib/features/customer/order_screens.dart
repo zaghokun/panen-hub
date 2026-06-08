@@ -182,42 +182,60 @@ class OrderListScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Pesanan Saya')),
-      body: orders.when(
-        data: (list) {
-          if (list.isEmpty) return const AppEmptyState(icon: Icons.receipt_long_outlined, title: 'Belum Ada Pesanan', description: 'Belum ada pre-order aktif. Cari komoditas segar dan mulai booking panen.');
-          return ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: list.length,
-            itemBuilder: (context, i) {
-              final o = list[i];
-              return GestureDetector(
-                onTap: () => onOrderTap(o.id),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border.withValues(alpha: 0.5))),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      Expanded(child: Text(o.id, style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600))),
-                      AppStatusChip.order(o.status),
-                    ]),
-                    const SizedBox(height: 8),
-                    Text(o.commodityName, style: AppTextStyles.labelLarge),
-                    const SizedBox(height: 4),
-                    Text('${o.farmerName} · ${o.quantityKg.toStringAsFixed(0)} kg', style: AppTextStyles.caption),
-                    const Divider(height: 20),
-                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                      Text(CurrencyFormatter.format(o.totalPrice), style: AppTextStyles.labelLarge.copyWith(color: AppColors.primary)),
-                      Text(DateFormatter.short(o.deliveryDate), style: AppTextStyles.caption),
-                    ]),
-                  ]),
-                ),
-              );
-            },
-          );
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(orderListProvider);
         },
-        loading: () => const AppLoadingState(),
-        error: (_, __) => const Center(child: Text('Gagal memuat pesanan')),
+        child: orders.when(
+          data: (list) {
+            if (list.isEmpty) {
+              return Stack(
+                children: [
+                  ListView(),
+                  const AppEmptyState(icon: Icons.receipt_long_outlined, title: 'Belum Ada Pesanan', description: 'Belum ada pre-order aktif. Cari komoditas segar dan mulai booking panen.'),
+                ],
+              );
+            }
+            return ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              itemCount: list.length,
+              itemBuilder: (context, i) {
+                final o = list[i];
+                return GestureDetector(
+                  onTap: () => onOrderTap(o.id),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border.withValues(alpha: 0.5))),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Expanded(child: Text(o.id, style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600))),
+                        AppStatusChip.order(o.status),
+                      ]),
+                      const SizedBox(height: 8),
+                      Text(o.commodityName, style: AppTextStyles.labelLarge),
+                      const SizedBox(height: 4),
+                      Text('${o.farmerName} · ${o.quantityKg.toStringAsFixed(0)} kg', style: AppTextStyles.caption),
+                      const Divider(height: 20),
+                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                        Text(CurrencyFormatter.format(o.totalPrice), style: AppTextStyles.labelLarge.copyWith(color: AppColors.primary)),
+                        Text(DateFormatter.short(o.deliveryDate), style: AppTextStyles.caption),
+                      ]),
+                    ]),
+                  ),
+                );
+              },
+            );
+          },
+          loading: () => const AppLoadingState(),
+          error: (_, __) => Stack(
+            children: [
+              ListView(),
+              const Center(child: Text('Gagal memuat pesanan')),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -238,98 +256,109 @@ class OrderDetailScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Detail Pesanan')),
-      body: order.when(
-        data: (o) => SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Status header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: AppColors.primarySurface, borderRadius: BorderRadius.circular(16)),
-              child: Column(children: [
-                AppStatusChip.order(o.status),
-                const SizedBox(height: 8),
-                Text(o.id, style: AppTextStyles.labelMedium),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(orderDetailProvider(orderId));
+        },
+        child: order.when(
+          data: (o) => SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Status header
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: AppColors.primarySurface, borderRadius: BorderRadius.circular(16)),
+                child: Column(children: [
+                  AppStatusChip.order(o.status),
+                  const SizedBox(height: 8),
+                  Text(o.id, style: AppTextStyles.labelMedium),
+                ]),
+              ),
+              const SizedBox(height: 20),
+              // Timeline
+              Text('Status Rantai Pasok', style: AppTextStyles.titleMedium),
+              const SizedBox(height: 12),
+              _buildTimeline(o.status),
+              const SizedBox(height: 20),
+              // Info
+              _DetailSection(title: 'Komoditas', children: [
+                _DetailRow('Nama', o.commodityName),
+                _DetailRow('Jumlah', '${o.quantityKg.toStringAsFixed(0)} kg'),
+                _DetailRow('Harga/kg', CurrencyFormatter.formatPerKg(o.pricePerKg)),
               ]),
-            ),
-            const SizedBox(height: 20),
-            // Timeline
-            Text('Status Rantai Pasok', style: AppTextStyles.titleMedium),
-            const SizedBox(height: 12),
-            _buildTimeline(o.status),
-            const SizedBox(height: 20),
-            // Info
-            _DetailSection(title: 'Komoditas', children: [
-              _DetailRow('Nama', o.commodityName),
-              _DetailRow('Jumlah', '${o.quantityKg.toStringAsFixed(0)} kg'),
-              _DetailRow('Harga/kg', CurrencyFormatter.formatPerKg(o.pricePerKg)),
-            ]),
-            _DetailSection(title: 'Petani', children: [_DetailRow('Nama', o.farmerName)]),
-            _DetailSection(title: 'Pengiriman', children: [
-              _DetailRow('Alamat', o.deliveryAddress),
-              _DetailRow('Tanggal', DateFormatter.full(o.deliveryDate)),
-            ]),
-            _DetailSection(title: 'Pembayaran', children: [
-              _DetailRow('Total', CurrencyFormatter.format(o.totalPrice)),
-              _DetailRow('Escrow', 'Dana ditahan aman'),
-            ]),
-            const SizedBox(height: 20),
-            // CTAs — only show customer-specific actions for customers
-            if (ref.read(authProvider).role == UserRole.customer) ...[
-              if (o.status == OrderStatus.shipped) ...[
-                AppButton(label: 'Konfirmasi Penerimaan', icon: Icons.check_circle_outline, onPressed: () async {
-                  final accepted = await AppConfirmationDialog.show(context, title: 'Konfirmasi Penerimaan', message: 'Apakah barang sudah diterima?');
-                  if (accepted == true) {
+              _DetailSection(title: 'Petani', children: [_DetailRow('Nama', o.farmerName)]),
+              _DetailSection(title: 'Pengiriman', children: [
+                _DetailRow('Alamat', o.deliveryAddress),
+                _DetailRow('Tanggal', DateFormatter.full(o.deliveryDate)),
+              ]),
+              _DetailSection(title: 'Pembayaran', children: [
+                _DetailRow('Total', CurrencyFormatter.format(o.totalPrice)),
+                _DetailRow('Escrow', 'Dana ditahan aman'),
+              ]),
+              const SizedBox(height: 20),
+              // CTAs — only show customer-specific actions for customers
+              if (ref.read(authProvider).role == UserRole.customer) ...[
+                if (o.status == OrderStatus.shipped) ...[
+                  AppButton(label: 'Konfirmasi Penerimaan', icon: Icons.check_circle_outline, onPressed: () async {
+                    final accepted = await AppConfirmationDialog.show(context, title: 'Konfirmasi Penerimaan', message: 'Apakah barang sudah diterima?');
+                    if (accepted == true) {
+                      try {
+                        await OrderService().confirmReceipt(o.id);
+                        ref.invalidate(orderListProvider);
+                        if (context.mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Penerimaan dikonfirmasi. Silakan lakukan Quality Control.'), backgroundColor: AppColors.success)); Navigator.of(context).pop(); }
+                      } on DioException catch (e) {
+                        if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal konfirmasi penerimaan.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+                      }
+                    }
+                  }),
+                ],
+                if (o.status == OrderStatus.delivered) ...[
+                  AppButton(label: 'Submit Quality Control', icon: Icons.fact_check_outlined, onPressed: () async {
+                    final accepted = await AppConfirmationDialog.show(context, title: 'Quality Control', message: 'Apakah barang dalam kondisi BAIK dan jumlah SESUAI? Jika ya, dana akan dirilis ke petani dan pesanan selesai.');
+                    if (accepted == true) {
+                      try {
+                        await QcService().submit(o.id, conditionStatus: 'good', quantityStatus: 'complete');
+                        ref.invalidate(orderListProvider);
+                        if (context.mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('QC berhasil. Pesanan selesai, dana dirilis ke petani.'), backgroundColor: AppColors.success)); Navigator.of(context).pop(); }
+                      } on DioException catch (e) {
+                        if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal submit QC.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+                      }
+                    }
+                  }),
+                  const SizedBox(height: 8),
+                  AppButton(label: 'Barang Tidak Sesuai (Sengketa)', isOutlined: true, isDanger: true, icon: Icons.report_problem_outlined, onPressed: onDispute),
+                ],
+                if (o.status == OrderStatus.completed) ...[
+                  AppButton(label: 'Beri Ulasan', icon: Icons.star_outline, onPressed: onReview),
+                ],
+                if (o.status == OrderStatus.waitingPayment) ...[
+                  AppButton(label: 'Bayar Sekarang', icon: Icons.payment, onPressed: () async {
                     try {
-                      await OrderService().confirmReceipt(o.id);
+                      await PaymentService().create(o.id);
                       ref.invalidate(orderListProvider);
-                      if (context.mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Penerimaan dikonfirmasi. Silakan lakukan Quality Control.'), backgroundColor: AppColors.success)); Navigator.of(context).pop(); }
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pembayaran berhasil! Dana ditahan di escrow.'), backgroundColor: AppColors.success));
+                        Navigator.of(context).pop();
+                      }
                     } on DioException catch (e) {
-                      if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal konfirmasi penerimaan.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
+                      if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal memproses pembayaran.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
                     }
-                  }
-                }),
+                  }),
+                ],
               ],
-              if (o.status == OrderStatus.delivered) ...[
-                AppButton(label: 'Submit Quality Control', icon: Icons.fact_check_outlined, onPressed: () async {
-                  final accepted = await AppConfirmationDialog.show(context, title: 'Quality Control', message: 'Apakah barang dalam kondisi BAIK dan jumlah SESUAI? Jika ya, dana akan dirilis ke petani dan pesanan selesai.');
-                  if (accepted == true) {
-                    try {
-                      await QcService().submit(o.id, conditionStatus: 'good', quantityStatus: 'complete');
-                      ref.invalidate(orderListProvider);
-                      if (context.mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('QC berhasil. Pesanan selesai, dana dirilis ke petani.'), backgroundColor: AppColors.success)); Navigator.of(context).pop(); }
-                    } on DioException catch (e) {
-                      if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal submit QC.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
-                    }
-                  }
-                }),
-                const SizedBox(height: 8),
-                AppButton(label: 'Barang Tidak Sesuai (Sengketa)', isOutlined: true, isDanger: true, icon: Icons.report_problem_outlined, onPressed: onDispute),
-              ],
-              if (o.status == OrderStatus.completed) ...[
-                AppButton(label: 'Beri Ulasan', icon: Icons.star_outline, onPressed: onReview),
-              ],
-              if (o.status == OrderStatus.waitingPayment) ...[
-                AppButton(label: 'Bayar Sekarang', icon: Icons.payment, onPressed: () async {
-                  try {
-                    await PaymentService().create(o.id);
-                    ref.invalidate(orderListProvider);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pembayaran berhasil! Dana ditahan di escrow.'), backgroundColor: AppColors.success));
-                      Navigator.of(context).pop();
-                    }
-                  } on DioException catch (e) {
-                    if (context.mounted) { final msg = e.error is ApiException ? (e.error as ApiException).message : 'Gagal memproses pembayaran.'; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: AppColors.error)); }
-                  }
-                }),
-              ],
+              const SizedBox(height: 32),
+            ]),
+          ),
+          loading: () => const AppLoadingState(),
+          error: (_, __) => Stack(
+            children: [
+              ListView(),
+              const Center(child: Text('Gagal memuat detail')),
             ],
-            const SizedBox(height: 32),
-          ]),
+          ),
         ),
-        loading: () => const AppLoadingState(),
-        error: (_, __) => const Center(child: Text('Gagal memuat detail')),
       ),
     );
   }

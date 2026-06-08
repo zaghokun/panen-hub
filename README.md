@@ -12,9 +12,35 @@ Repository ini menggunakan struktur **monorepo** — frontend dan backend berada
 
 ```
 panenhub/
-├── panenhub-mobile/        # Flutter Android App
-└── panenhub-backend/       # Express.js REST API
+├── panenhub/panenhub-fe/   # Flutter Android App (Mobile)
+└── panenhub/panenhub-be/   # Express.js REST API (Backend)
 ```
+
+---
+
+## Konfigurasi Koneksi (Penting untuk PM)
+
+Agar Frontend (HP/Emulator) dapat terhubung ke Backend di laptop, perhatikan konfigurasi di file `panenhub/panenhub-fe/lib/app/config/env.dart`:
+
+### 1. Menggunakan Emulator Android Studio
+Gunakan IP khusus emulator untuk mengakses localhost host:
+```dart
+defaultValue: 'http://10.0.2.2:3000/api/v1'
+```
+
+### 2. Menggunakan HP Fisik (Hotspot Laptop)
+Hubungkan HP ke hotspot laptop, lalu gunakan IP Gateway hotspot (biasanya Windows menggunakan IP ini):
+```dart
+defaultValue: 'http://192.168.137.1:3000/api/v1'
+```
+
+### 3. Menggunakan HP Fisik (Wi-Fi yang Sama)
+Gunakan IP lokal laptop Anda (cek via `ipconfig` di CMD):
+```dart
+defaultValue: 'http://192.168.1.XX:3000/api/v1'
+```
+
+> **Catatan Backend:** Server backend telah dikonfigurasi untuk listen di `0.0.0.0` agar bisa menerima koneksi dari luar `localhost`. Pastikan juga **Windows Firewall** di laptop Anda mengizinkan koneksi masuk (Inbound) pada port `3000`.
 
 ---
 
@@ -73,6 +99,7 @@ panenhub/
 - **Wallet & Withdrawal** untuk petani
 - **Ulasan & Rating** petani oleh Customer
 - **Notifikasi realtime** via Socket.io untuk event-event penting
+- **Pull to Refresh** di semua layar utama untuk sinkronisasi data terbaru
 
 ---
 
@@ -118,7 +145,7 @@ completed        disputed
 
 ```bash
 # Masuk ke folder backend
-cd panenhub-backend
+cd panenhub/panenhub-be
 
 # Install dependencies
 npm install
@@ -151,8 +178,7 @@ npx prisma db seed
 npm run dev
 ```
 
-Server berjalan di `http://localhost:3000`  
-Socket.io aktif di port yang sama.
+Server berjalan di `http://0.0.0.0:3000` (dapat diakses dari jaringan).
 
 ---
 
@@ -160,7 +186,7 @@ Socket.io aktif di port yang sama.
 
 ```bash
 # Masuk ke folder mobile
-cd panenhub-mobile
+cd panenhub/panenhub-fe
 
 # Install dependencies
 flutter pub get
@@ -168,11 +194,11 @@ flutter pub get
 # Jalankan code generation (freezed + json_serializable)
 dart run build_runner build --delete-conflicting-outputs
 
+# Sesuaikan BASE_URL di lib/app/config/env.dart (Lihat bagian Konfigurasi Koneksi)
+
 # Pastikan emulator atau device Android terhubung
 flutter run
 ```
-
-> Pastikan `BASE_URL` di konfigurasi Flutter mengarah ke `http://10.0.2.2:3000` jika menggunakan Android Emulator, atau IP lokal mesin jika menggunakan device fisik.
 
 ---
 
@@ -238,13 +264,11 @@ Authorization: Bearer <access_token>
 | PATCH | `/admin/disputes/:id/decision` | Putuskan sengketa |
 | PATCH | `/admin/withdrawals/:id/approve` | Approve withdrawal |
 
-> Dokumentasi API lengkap tersedia di [`panenhub-backend/BLUEPRINT.md`](./panenhub-backend/BLUEPRINT.md)
-
 ---
 
 ## Struktur Folder
 
-### Frontend (`panenhub-mobile/`)
+### Frontend (`panenhub/panenhub-fe/`)
 
 ```
 lib/
@@ -265,7 +289,7 @@ lib/
     profile/        # Profil user
 ```
 
-### Backend (`panenhub-backend/`)
+### Backend (`panenhub/panenhub-be/`)
 
 ```
 src/
@@ -316,9 +340,9 @@ Event yang dikirim:
 | Dokumen | Lokasi |
 |---|---|
 | Blueprint Lengkap Proyek | `docs/panenhub_complete_project_blueprint.md` |
-| Blueprint Frontend Flutter | `panenhub-mobile/BLUEPRINT.md` |
-| Blueprint Backend | `panenhub-backend/BLUEPRINT.md` |
-| Prisma Schema | `panenhub-backend/prisma/schema.prisma` |
+| Blueprint Frontend Flutter | `panenhub/panenhub-fe/BLUEPRINT.md` |
+| Blueprint Backend | `panenhub/panenhub-be/BLUEPRINT.md` |
+| Prisma Schema | `panenhub/panenhub-be/prisma/schema.prisma` |
 
 ---
 

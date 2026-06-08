@@ -35,88 +35,97 @@ class FarmerDashboardScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Premium greeting card
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.primary, AppColors.primaryDark],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(walletProvider);
+            ref.invalidate(farmerCommodityListProvider);
+            ref.invalidate(orderListProvider);
+            await ref.read(authProvider.notifier).checkSession();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Premium greeting card
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.primary, AppColors.primaryDark],
                   ),
-                ],
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Row(children: [
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Dashboard Petani 🌾', style: AppTextStyles.bodyMedium.copyWith(color: Colors.white.withValues(alpha: 0.85))),
+                    const SizedBox(height: 4),
+                    Text(auth.user?.name ?? '', style: AppTextStyles.headlineMedium.copyWith(color: Colors.white)),
+                  ])),
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.agriculture, color: Colors.white, size: 26),
+                  ),
+                ]),
               ),
-              child: Row(children: [
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Dashboard Petani 🌾', style: AppTextStyles.bodyMedium.copyWith(color: Colors.white.withValues(alpha: 0.85))),
-                  const SizedBox(height: 4),
-                  Text(auth.user?.name ?? '', style: AppTextStyles.headlineMedium.copyWith(color: Colors.white)),
-                ])),
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(Icons.agriculture, color: Colors.white, size: 26),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.successLight,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.success.withValues(alpha: 0.2)),
                 ),
+                child: Row(children: [const Icon(Icons.verified, color: AppColors.success, size: 18), const SizedBox(width: 8), Text('Akun terverifikasi', style: AppTextStyles.caption.copyWith(color: AppColors.success, fontWeight: FontWeight.w500))]),
+              ),
+              const SizedBox(height: 24),
+              // Section header with accent
+              Row(children: [
+                Container(width: 4, height: 20, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
+                const SizedBox(width: 8),
+                Text('Ringkasan', style: AppTextStyles.titleMedium),
               ]),
-            ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.successLight,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.success.withValues(alpha: 0.2)),
-              ),
-              child: Row(children: [const Icon(Icons.verified, color: AppColors.success, size: 18), const SizedBox(width: 8), Text('Akun terverifikasi', style: AppTextStyles.caption.copyWith(color: AppColors.success, fontWeight: FontWeight.w500))]),
-            ),
-            const SizedBox(height: 24),
-            // Section header with accent
-            Row(children: [
-              Container(width: 4, height: 20, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
-              const SizedBox(width: 8),
-              Text('Ringkasan', style: AppTextStyles.titleMedium),
-            ]),
-            const SizedBox(height: 14),
-            // Stats
-            Row(children: [
-              _StatCard(icon: Icons.eco, label: 'Komoditas', value: '${commodities.valueOrNull?.length ?? 0}', color: AppColors.primary),
-              const SizedBox(width: 12),
-              _StatCard(icon: Icons.receipt_long, label: 'Pesanan', value: '${orders.valueOrNull?.length ?? 0}', color: AppColors.info),
-            ]),
-            const SizedBox(height: 12),
-            wallet.when(
-              data: (w) => Row(children: [
-                _StatCard(icon: Icons.account_balance_wallet, label: 'Tersedia', value: CurrencyFormatter.format(w.availableBalance), color: AppColors.success),
+              const SizedBox(height: 14),
+              // Stats
+              Row(children: [
+                _StatCard(icon: Icons.eco, label: 'Komoditas', value: '${commodities.valueOrNull?.length ?? 0}', color: AppColors.primary),
                 const SizedBox(width: 12),
-                _StatCard(icon: Icons.lock_outline, label: 'Tertahan', value: CurrencyFormatter.format(w.heldBalance), color: AppColors.warning),
+                _StatCard(icon: Icons.receipt_long, label: 'Pesanan', value: '${orders.valueOrNull?.length ?? 0}', color: AppColors.info),
               ]),
-              loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
-            ),
-            const SizedBox(height: 28),
-            Row(children: [
-              Container(width: 4, height: 20, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
-              const SizedBox(width: 8),
-              Text('Aksi Cepat', style: AppTextStyles.titleMedium),
+              const SizedBox(height: 12),
+              wallet.when(
+                data: (w) => Row(children: [
+                  _StatCard(icon: Icons.account_balance_wallet, label: 'Tersedia', value: CurrencyFormatter.format(w.availableBalance), color: AppColors.success),
+                  const SizedBox(width: 12),
+                  _StatCard(icon: Icons.lock_outline, label: 'Tertahan', value: CurrencyFormatter.format(w.heldBalance), color: AppColors.warning),
+                ]),
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              ),
+              const SizedBox(height: 28),
+              Row(children: [
+                Container(width: 4, height: 20, decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(2))),
+                const SizedBox(width: 8),
+                Text('Aksi Cepat', style: AppTextStyles.titleMedium),
+              ]),
+              const SizedBox(height: 14),
+              AppButton(label: 'Posting Estimasi Panen', icon: Icons.add_circle_outline, onPressed: onAddCommodity),
+              const SizedBox(height: 32),
             ]),
-            const SizedBox(height: 14),
-            AppButton(label: 'Posting Estimasi Panen', icon: Icons.add_circle_outline, onPressed: onAddCommodity),
-            const SizedBox(height: 32),
-          ]),
+          ),
         ),
       ),
     );
@@ -174,35 +183,57 @@ class FarmerCommodityListScreen extends ConsumerWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Komoditas Saya')),
       floatingActionButton: FloatingActionButton(onPressed: onAdd, backgroundColor: AppColors.primary, child: const Icon(Icons.add, color: Colors.white)),
-      body: commodities.when(
-        data: (list) {
-          if (list.isEmpty) return const AppEmptyState(icon: Icons.eco_outlined, title: 'Belum Ada Komoditas', description: 'Posting estimasi panen pertama Anda.');
-          return ListView.builder(padding: const EdgeInsets.all(20), itemCount: list.length, itemBuilder: (context, i) {
-            final c = list[i];
-            return GestureDetector(
-              onTap: onCommodityTap != null ? () => onCommodityTap!(c.id) : null,
-              child: Container(
-                margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border.withValues(alpha: 0.5))),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [Expanded(child: Text(c.name, style: AppTextStyles.labelLarge)), AppStatusChip(label: c.isActive ? 'Aktif' : 'Nonaktif', color: c.isActive ? AppColors.success : AppColors.textSecondary)]),
-                  const SizedBox(height: 8),
-                  Text('${c.category} · ${c.location}', style: AppTextStyles.caption),
-                  const SizedBox(height: 4),
-                  Row(children: [
-                    Text(CurrencyFormatter.formatPerKg(c.pricePerKg), style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary)),
-                    const Spacer(),
-                    Text('Kuota: ${c.availableQuotaKg.toStringAsFixed(0)} kg', style: AppTextStyles.caption),
-                  ]),
-                  const SizedBox(height: 4),
-                  Text('Panen: ${DateFormatter.short(c.estimatedHarvestDate)}', style: AppTextStyles.caption),
-                ]),
-              ),
-            );
-          });
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(farmerCommodityListProvider);
         },
-        loading: () => const AppLoadingState(),
-        error: (_, __) => const Center(child: Text('Gagal memuat data')),
+        child: commodities.when(
+          data: (list) {
+            if (list.isEmpty) {
+              return Stack(
+                children: [
+                  ListView(),
+                  const AppEmptyState(icon: Icons.eco_outlined, title: 'Belum Ada Komoditas', description: 'Posting estimasi panen pertama Anda.'),
+                ],
+              );
+            }
+            return ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20), 
+              itemCount: list.length, 
+              itemBuilder: (context, i) {
+                final c = list[i];
+                return GestureDetector(
+                  onTap: onCommodityTap != null ? () => onCommodityTap!(c.id) : null,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border.withValues(alpha: 0.5))),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [Expanded(child: Text(c.name, style: AppTextStyles.labelLarge)), AppStatusChip(label: c.isActive ? 'Aktif' : 'Nonaktif', color: c.isActive ? AppColors.success : AppColors.textSecondary)]),
+                      const SizedBox(height: 8),
+                      Text('${c.category} · ${c.location}', style: AppTextStyles.caption),
+                      const SizedBox(height: 4),
+                      Row(children: [
+                        Text(CurrencyFormatter.formatPerKg(c.pricePerKg), style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary)),
+                        const Spacer(),
+                        Text('Kuota: ${c.availableQuotaKg.toStringAsFixed(0)} kg', style: AppTextStyles.caption),
+                      ]),
+                      const SizedBox(height: 4),
+                      Text('Panen: ${DateFormatter.short(c.estimatedHarvestDate)}', style: AppTextStyles.caption),
+                    ]),
+                  ),
+                );
+              },
+            );
+          },
+          loading: () => const AppLoadingState(),
+          error: (_, __) => Stack(
+            children: [
+              ListView(),
+              const Center(child: Text('Gagal memuat data')),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -379,41 +410,63 @@ class FarmerOrderListScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Pesanan Masuk')),
-      body: orders.when(
-        data: (list) {
-          if (list.isEmpty) return const AppEmptyState(icon: Icons.receipt_long_outlined, title: 'Belum Ada Pesanan', description: 'Belum ada pre-order masuk.');
-          return ListView.builder(padding: const EdgeInsets.all(20), itemCount: list.length, itemBuilder: (context, i) {
-            final o = list[i];
-            return GestureDetector(
-              onTap: () => onOrderTap(o.id),
-              child: Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border.withValues(alpha: 0.5))),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [Expanded(child: Text(o.id, style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600))), AppStatusChip.order(o.status)]),
-                  const SizedBox(height: 8),
-                  Text(o.commodityName, style: AppTextStyles.labelLarge),
-                  Text('Pelanggan: ${o.customerName}', style: AppTextStyles.caption),
-                  const Divider(height: 16),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Text('${o.quantityKg.toStringAsFixed(0)} kg · ${CurrencyFormatter.format(o.totalPrice)}', style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary)),
-                    if (StatusMapper.validNextStatuses(o.status).isNotEmpty)
-                      GestureDetector(
-                        onTap: () => _showUpdateStatusSheet(context, ref, o),
-                        child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: AppColors.primarySurface, borderRadius: BorderRadius.circular(6)),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(Icons.edit, size: 12, color: AppColors.primary),
-                            const SizedBox(width: 4),
-                            Text('Update Status', style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary)),
-                          ])),
-                      ),
-                  ]),
-                ]),
-              ),
-            );
-          });
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(orderListProvider);
         },
-        loading: () => const AppLoadingState(),
-        error: (_, __) => const Center(child: Text('Gagal memuat')),
+        child: orders.when(
+          data: (list) {
+            if (list.isEmpty) {
+              return Stack(
+                children: [
+                  ListView(),
+                  const AppEmptyState(icon: Icons.receipt_long_outlined, title: 'Belum Ada Pesanan', description: 'Belum ada pre-order masuk.'),
+                ],
+              );
+            }
+            return ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20), 
+              itemCount: list.length, 
+              itemBuilder: (context, i) {
+                final o = list[i];
+                return GestureDetector(
+                  onTap: () => onOrderTap(o.id),
+                  child: Container(margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border.withValues(alpha: 0.5))),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [Expanded(child: Text(o.id, style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w600))), AppStatusChip.order(o.status)]),
+                      const SizedBox(height: 8),
+                      Text(o.commodityName, style: AppTextStyles.labelLarge),
+                      Text('Pelanggan: ${o.customerName}', style: AppTextStyles.caption),
+                      const Divider(height: 16),
+                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                        Text('${o.quantityKg.toStringAsFixed(0)} kg · ${CurrencyFormatter.format(o.totalPrice)}', style: AppTextStyles.labelMedium.copyWith(color: AppColors.primary)),
+                        if (StatusMapper.validNextStatuses(o.status).isNotEmpty)
+                          GestureDetector(
+                            onTap: () => _showUpdateStatusSheet(context, ref, o),
+                            child: Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: AppColors.primarySurface, borderRadius: BorderRadius.circular(6)),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(Icons.edit, size: 12, color: AppColors.primary),
+                                const SizedBox(width: 4),
+                                Text('Update Status', style: AppTextStyles.labelSmall.copyWith(color: AppColors.primary)),
+                              ])),
+                          ),
+                      ]),
+                    ]),
+                  ),
+                );
+              },
+            );
+          },
+          loading: () => const AppLoadingState(),
+          error: (_, __) => Stack(
+            children: [
+              ListView(),
+              const Center(child: Text('Gagal memuat')),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -430,36 +483,49 @@ class FarmerWalletScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Keuangan')),
-      body: wallet.when(
-        data: (w) => SingleChildScrollView(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Container(
-            width: double.infinity, padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, AppColors.primaryDark]), borderRadius: BorderRadius.circular(20)),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(walletProvider);
+        },
+        child: wallet.when(
+          data: (w) => SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20), 
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Saldo Tersedia', style: AppTextStyles.bodyMedium.copyWith(color: Colors.white70)),
-              const SizedBox(height: 4),
-              Text(CurrencyFormatter.format(w.availableBalance), style: AppTextStyles.displayMedium.copyWith(color: Colors.white)),
+              Container(
+                width: double.infinity, padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(gradient: LinearGradient(colors: [AppColors.primary, AppColors.primaryDark]), borderRadius: BorderRadius.circular(20)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Saldo Tersedia', style: AppTextStyles.bodyMedium.copyWith(color: Colors.white70)),
+                  const SizedBox(height: 4),
+                  Text(CurrencyFormatter.format(w.availableBalance), style: AppTextStyles.displayMedium.copyWith(color: Colors.white)),
+                  const SizedBox(height: 16),
+                  Row(children: [
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Tertahan', style: AppTextStyles.caption.copyWith(color: Colors.white60)),
+                      Text(CurrencyFormatter.format(w.heldBalance), style: AppTextStyles.labelLarge.copyWith(color: Colors.white)),
+                    ])),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Dicairkan', style: AppTextStyles.caption.copyWith(color: Colors.white60)),
+                      Text(CurrencyFormatter.format(w.totalDisbursed), style: AppTextStyles.labelLarge.copyWith(color: Colors.white)),
+                    ])),
+                  ]),
+                ]),
+              ),
               const SizedBox(height: 16),
-              Row(children: [
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Tertahan', style: AppTextStyles.caption.copyWith(color: Colors.white60)),
-                  Text(CurrencyFormatter.format(w.heldBalance), style: AppTextStyles.labelLarge.copyWith(color: Colors.white)),
-                ])),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Dicairkan', style: AppTextStyles.caption.copyWith(color: Colors.white60)),
-                  Text(CurrencyFormatter.format(w.totalDisbursed), style: AppTextStyles.labelLarge.copyWith(color: Colors.white)),
-                ])),
-              ]),
-            ]),
+              Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.infoLight, borderRadius: BorderRadius.circular(10)),
+                child: Row(children: [const Icon(Icons.info_outline, color: AppColors.info, size: 18), const SizedBox(width: 8), Expanded(child: Text('Dana tersedia dapat ditarik setelah pesanan selesai divalidasi.', style: AppTextStyles.caption.copyWith(color: AppColors.info)))])),
+              const SizedBox(height: 24),
+              AppButton(label: 'Ajukan Pencairan Dana', icon: Icons.account_balance_outlined, onPressed: onWithdraw),
+            ])),
+          loading: () => const AppLoadingState(),
+          error: (_, __) => Stack(
+            children: [
+              ListView(),
+              const Center(child: Text('Gagal memuat')),
+            ],
           ),
-          const SizedBox(height: 16),
-          Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: AppColors.infoLight, borderRadius: BorderRadius.circular(10)),
-            child: Row(children: [const Icon(Icons.info_outline, color: AppColors.info, size: 18), const SizedBox(width: 8), Expanded(child: Text('Dana tersedia dapat ditarik setelah pesanan selesai divalidasi.', style: AppTextStyles.caption.copyWith(color: AppColors.info)))])),
-          const SizedBox(height: 24),
-          AppButton(label: 'Ajukan Pencairan Dana', icon: Icons.account_balance_outlined, onPressed: onWithdraw),
-        ])),
-        loading: () => const AppLoadingState(),
-        error: (_, __) => const Center(child: Text('Gagal memuat')),
+        ),
       ),
     );
   }

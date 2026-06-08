@@ -70,20 +70,36 @@ class _CommodityListScreenState extends ConsumerState<CommodityListScreen> {
           ),
           const SizedBox(height: 12),
           Expanded(
-            child: commodities.when(
-              data: (list) {
-                final filtered = _selectedCategory == 'Semua' ? list : list.where((c) => c.category == _selectedCategory).toList();
-                if (filtered.isEmpty) {
-                  return const AppEmptyState(icon: Icons.search_off, title: 'Komoditas Tidak Ditemukan', description: 'Belum ada komoditas yang sesuai filter.');
-                }
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, i) => _CommodityListCard(commodity: filtered[i], onTap: () => widget.onCommodityTap(filtered[i].id)),
-                );
+            child: RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(commodityListProvider(_searchQuery.isEmpty ? null : _searchQuery));
               },
-              loading: () => const AppLoadingState(),
-              error: (_, __) => const Center(child: Text('Gagal memuat data')),
+              child: commodities.when(
+                data: (list) {
+                  final filtered = _selectedCategory == 'Semua' ? list : list.where((c) => c.category == _selectedCategory).toList();
+                  if (filtered.isEmpty) {
+                    return Stack(
+                      children: [
+                        ListView(),
+                        const AppEmptyState(icon: Icons.search_off, title: 'Komoditas Tidak Ditemukan', description: 'Belum ada komoditas yang sesuai filter.'),
+                      ],
+                    );
+                  }
+                  return ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, i) => _CommodityListCard(commodity: filtered[i], onTap: () => widget.onCommodityTap(filtered[i].id)),
+                  );
+                },
+                loading: () => const AppLoadingState(),
+                error: (_, __) => Stack(
+                  children: [
+                    ListView(),
+                    const Center(child: Text('Gagal memuat data')),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -150,109 +166,120 @@ class CommodityDetailScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(title: const Text('Detail Komoditas')),
-      body: commodity.when(
-        data: (c) => SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(height: 200, width: double.infinity, color: AppColors.primarySurface, child: const Icon(Icons.eco, size: 80, color: AppColors.primary)),
-              Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Row(children: [
-                    Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: AppColors.secondaryLight, borderRadius: BorderRadius.circular(6)), child: Text(c.category, style: AppTextStyles.labelSmall.copyWith(color: AppColors.secondary))),
-                    const Spacer(),
-                    Icon(Icons.star, size: 16, color: AppColors.secondary),
-                    const SizedBox(width: 4),
-                    Text('${c.farmerRating}', style: AppTextStyles.labelMedium),
-                  ]),
-                  const SizedBox(height: 12),
-                  Text(c.name, style: AppTextStyles.headlineLarge),
-                  const SizedBox(height: 8),
-                  Text(CurrencyFormatter.formatPerKg(c.pricePerKg), style: AppTextStyles.headlineMedium.copyWith(color: AppColors.primary)),
-                  const SizedBox(height: 16),
-                  _InfoRow(icon: Icons.calendar_today, label: 'Estimasi Panen', value: DateFormatter.full(c.estimatedHarvestDate)),
-                  _InfoRow(icon: Icons.inventory_2_outlined, label: 'Kuota Tersedia', value: '${c.availableQuotaKg.toStringAsFixed(0)} kg'),
-                  _InfoRow(icon: Icons.location_on_outlined, label: 'Lokasi', value: c.location),
-                  const SizedBox(height: 16),
-                  Text('Deskripsi', style: AppTextStyles.titleMedium),
-                  const SizedBox(height: 8),
-                  Text(c.description, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
-                  const SizedBox(height: 20),
-                  // Farmer info
-                  GestureDetector(
-                    onTap: () {
-                      showModalBottomSheet(
-                        context: context,
-                        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-                        builder: (ctx) => Consumer(builder: (ctx, ref, _) {
-                          final reviews = ref.watch(reviewListProvider(c.farmerId));
-                          return Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Row(children: [
-                                CircleAvatar(radius: 22, backgroundColor: AppColors.primarySurface, child: Text(c.farmerName[0], style: AppTextStyles.titleMedium.copyWith(color: AppColors.primary))),
-                                const SizedBox(width: 12),
-                                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  Text(c.farmerName, style: AppTextStyles.labelLarge),
-                                  Text('Petani Mitra PanenHub', style: AppTextStyles.caption),
-                                ])),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(commodityDetailProvider(commodityId));
+        },
+        child: commodity.when(
+          data: (c) => SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(height: 200, width: double.infinity, color: AppColors.primarySurface, child: const Icon(Icons.eco, size: 80, color: AppColors.primary)),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: AppColors.secondaryLight, borderRadius: BorderRadius.circular(6)), child: Text(c.category, style: AppTextStyles.labelSmall.copyWith(color: AppColors.secondary))),
+                      const Spacer(),
+                      Icon(Icons.star, size: 16, color: AppColors.secondary),
+                      const SizedBox(width: 4),
+                      Text('${c.farmerRating}', style: AppTextStyles.labelMedium),
+                    ]),
+                    const SizedBox(height: 12),
+                    Text(c.name, style: AppTextStyles.headlineLarge),
+                    const SizedBox(height: 8),
+                    Text(CurrencyFormatter.formatPerKg(c.pricePerKg), style: AppTextStyles.headlineMedium.copyWith(color: AppColors.primary)),
+                    const SizedBox(height: 16),
+                    _InfoRow(icon: Icons.calendar_today, label: 'Estimasi Panen', value: DateFormatter.full(c.estimatedHarvestDate)),
+                    _InfoRow(icon: Icons.inventory_2_outlined, label: 'Kuota Tersedia', value: '${c.availableQuotaKg.toStringAsFixed(0)} kg'),
+                    _InfoRow(icon: Icons.location_on_outlined, label: 'Lokasi', value: c.location),
+                    const SizedBox(height: 16),
+                    Text('Deskripsi', style: AppTextStyles.titleMedium),
+                    const SizedBox(height: 8),
+                    Text(c.description, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
+                    const SizedBox(height: 20),
+                    // Farmer info
+                    GestureDetector(
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                          builder: (ctx) => Consumer(builder: (ctx, ref, _) {
+                            final reviews = ref.watch(reviewListProvider(c.farmerId));
+                            return Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Row(children: [
+                                  CircleAvatar(radius: 22, backgroundColor: AppColors.primarySurface, child: Text(c.farmerName[0], style: AppTextStyles.titleMedium.copyWith(color: AppColors.primary))),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    Text(c.farmerName, style: AppTextStyles.labelLarge),
+                                    Text('Petani Mitra PanenHub', style: AppTextStyles.caption),
+                                  ])),
+                                ]),
+                                const Divider(height: 24),
+                                Text('Ulasan', style: AppTextStyles.titleMedium),
+                                const SizedBox(height: 12),
+                                reviews.when(
+                                  data: (list) {
+                                    if (list.isEmpty) return Text('Belum ada ulasan.', style: AppTextStyles.caption);
+                                    return Column(children: list.take(3).map((r) => Padding(
+                                      padding: const EdgeInsets.only(bottom: 12),
+                                      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                        Row(children: List.generate(5, (i) => Icon(i < r.rating ? Icons.star : Icons.star_border, size: 14, color: AppColors.secondary))),
+                                        const SizedBox(width: 8),
+                                        Expanded(child: Text(r.comment, style: AppTextStyles.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis)),
+                                      ]),
+                                    )).toList());
+                                  },
+                                  loading: () => const SizedBox(height: 40, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                                  error: (_, __) => Text('Gagal memuat ulasan', style: AppTextStyles.caption),
+                                ),
+                                const SizedBox(height: 8),
                               ]),
-                              const Divider(height: 24),
-                              Text('Ulasan', style: AppTextStyles.titleMedium),
-                              const SizedBox(height: 12),
-                              reviews.when(
-                                data: (list) {
-                                  if (list.isEmpty) return Text('Belum ada ulasan.', style: AppTextStyles.caption);
-                                  return Column(children: list.take(3).map((r) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                      Row(children: List.generate(5, (i) => Icon(i < r.rating ? Icons.star : Icons.star_border, size: 14, color: AppColors.secondary))),
-                                      const SizedBox(width: 8),
-                                      Expanded(child: Text(r.comment, style: AppTextStyles.bodySmall, maxLines: 2, overflow: TextOverflow.ellipsis)),
-                                    ]),
-                                  )).toList());
-                                },
-                                loading: () => const SizedBox(height: 40, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-                                error: (_, __) => Text('Gagal memuat ulasan', style: AppTextStyles.caption),
-                              ),
-                              const SizedBox(height: 8),
-                            ]),
-                          );
-                        }),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
-                      child: Row(children: [
-                        CircleAvatar(radius: 22, backgroundColor: AppColors.primarySurface, child: Text(c.farmerName[0], style: AppTextStyles.titleMedium.copyWith(color: AppColors.primary))),
-                        const SizedBox(width: 12),
-                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(c.farmerName, style: AppTextStyles.labelLarge),
-                          Text('Petani Mitra PanenHub', style: AppTextStyles.caption),
-                        ])),
-                        Icon(Icons.chevron_right, color: AppColors.textSecondary),
-                      ]),
+                            );
+                          }),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+                        child: Row(children: [
+                          CircleAvatar(radius: 22, backgroundColor: AppColors.primarySurface, child: Text(c.farmerName[0], style: AppTextStyles.titleMedium.copyWith(color: AppColors.primary))),
+                          const SizedBox(width: 12),
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(c.farmerName, style: AppTextStyles.labelLarge),
+                            Text('Petani Mitra PanenHub', style: AppTextStyles.caption),
+                          ])),
+                          Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                        ]),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: c.availableQuotaKg > 0 ? () => onPreOrder(c.id) : null,
-                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
-                      child: Text(c.availableQuotaKg > 0 ? 'Buat Pre-Order — ${CurrencyFormatter.formatPerKg(c.pricePerKg)}' : 'Stok Habis'),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: c.availableQuotaKg > 0 ? () => onPreOrder(c.id) : null,
+                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
+                        child: Text(c.availableQuotaKg > 0 ? 'Buat Pre-Order — ${CurrencyFormatter.formatPerKg(c.pricePerKg)}' : 'Stok Habis'),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                ]),
-              ),
+                    const SizedBox(height: 24),
+                  ]),
+                ),
+              ],
+            ),
+          ),
+          loading: () => const AppLoadingState(),
+          error: (_, __) => Stack(
+            children: [
+              ListView(),
+              const Center(child: Text('Gagal memuat detail')),
             ],
           ),
         ),
-        loading: () => const AppLoadingState(),
-        error: (_, __) => const Center(child: Text('Gagal memuat detail')),
       ),
     );
   }

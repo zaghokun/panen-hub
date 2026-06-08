@@ -28,257 +28,267 @@ class CustomerHomeScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: AppSpacing.md),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            // Refresh data
+            ref.invalidate(orderListProvider);
+            ref.invalidate(commodityListProvider(null));
+            // Optional: check session too
+            await ref.read(authProvider.notifier).checkSession();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenHorizontal),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: AppSpacing.md),
 
-              // Premium Greeting Card with gradient
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.primary, AppColors.primaryDark],
+                // Premium Greeting Card with gradient
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppColors.primary, AppColors.primaryDark],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Selamat Datang 👋',
-                            style: AppTextStyles.bodyMedium.copyWith(
-                              color: Colors.white.withValues(alpha: 0.85),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Selamat Datang 👋',
+                              style: AppTextStyles.bodyMedium.copyWith(
+                                color: Colors.white.withValues(alpha: 0.85),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            auth.user?.name ?? '',
-                            style: AppTextStyles.headlineMedium.copyWith(
+                            const SizedBox(height: 4),
+                            Text(
+                              auth.user?.name ?? '',
+                              style: AppTextStyles.headlineMedium.copyWith(
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Center(
+                          child: Text(
+                            (auth.user?.name ?? 'U')[0],
+                            style: AppTextStyles.titleLarge.copyWith(
                               color: Colors.white,
+                              fontWeight: FontWeight.w700,
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Center(
-                        child: Text(
-                          (auth.user?.name ?? 'U')[0],
-                          style: AppTextStyles.titleLarge.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(height: 20),
 
-              // Search Bar with shadow
-              GestureDetector(
-                onTap: onSearchTap,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                // Search Bar with shadow
+                GestureDetector(
+                  onTap: onSearchTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppColors.primarySurface,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.search, color: AppColors.primary, size: 18),
+                        ),
+                        const SizedBox(width: 12),
+                        Text('Cari komoditas segar...', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint)),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                // Categories
+                Text('Kategori', style: AppTextStyles.titleMedium),
+                const SizedBox(height: 12),
+                SizedBox(
+                  height: 44,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: ['Semua', 'Sayur', 'Buah', 'Bumbu', 'Biji-bijian', 'Umbi', 'Lainnya'].map((cat) {
+                      final isFirst = cat == 'Semua';
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(cat),
+                          selected: isFirst,
+                          selectedColor: AppColors.primary,
+                          labelStyle: TextStyle(color: isFirst ? Colors.white : AppColors.textPrimary, fontSize: 13),
+                          backgroundColor: AppColors.surface,
+                          side: BorderSide(color: isFirst ? AppColors.primary : AppColors.border),
+                          onSelected: (_) => onSearchTap(),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 28),
+
+                // Active Orders
+                orders.when(
+                  data: (list) {
+                    final active = list.where((o) =>
+                        o.status != OrderStatus.completed &&
+                        o.status != OrderStatus.cancelled &&
+                        o.status != OrderStatus.refunded).toList();
+                    if (active.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 4,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text('Pesanan Aktif', style: AppTextStyles.titleMedium),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ...active.take(2).map((order) => _OrderCard(order: order, onTap: () => onOrderTap(order.id))),
+                        const SizedBox(height: 24),
+                      ],
+                    );
+                  },
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+
+                // Escrow Banner – polished
+                Container(
+                  padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppColors.primary, AppColors.primaryDark],
+                    ),
+                    borderRadius: BorderRadius.circular(18),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
+                        color: AppColors.primary.withValues(alpha: 0.25),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
                       ),
                     ],
                   ),
                   child: Row(
                     children: [
                       Container(
-                        width: 32,
-                        height: 32,
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
-                          color: AppColors.primarySurface,
-                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Icon(Icons.search, color: AppColors.primary, size: 18),
+                        child: const Icon(Icons.shield_outlined, color: Colors.white, size: 26),
                       ),
-                      const SizedBox(width: 12),
-                      Text('Cari komoditas segar...', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textHint)),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              // Categories
-              Text('Kategori', style: AppTextStyles.titleMedium),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 44,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: ['Semua', 'Sayur', 'Buah', 'Bumbu', 'Biji-bijian', 'Umbi', 'Lainnya'].map((cat) {
-                    final isFirst = cat == 'Semua';
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(cat),
-                        selected: isFirst,
-                        selectedColor: AppColors.primary,
-                        labelStyle: TextStyle(color: isFirst ? Colors.white : AppColors.textPrimary, fontSize: 13),
-                        backgroundColor: AppColors.surface,
-                        side: BorderSide(color: isFirst ? AppColors.primary : AppColors.border),
-                        onSelected: (_) => onSearchTap(),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 28),
-
-              // Active Orders
-              orders.when(
-                data: (list) {
-                  final active = list.where((o) =>
-                      o.status != OrderStatus.completed &&
-                      o.status != OrderStatus.cancelled &&
-                      o.status != OrderStatus.refunded).toList();
-                  if (active.isEmpty) return const SizedBox.shrink();
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 4,
-                            height: 20,
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(2),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Pembayaran Aman',
+                              style: AppTextStyles.labelLarge.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text('Pesanan Aktif', style: AppTextStyles.titleMedium),
-                        ],
+                            const SizedBox(height: 4),
+                            Text(
+                              'Dana ditahan aman sampai pesanan diterima sesuai.',
+                              style: AppTextStyles.caption.copyWith(
+                                color: Colors.white.withValues(alpha: 0.8),
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      ...active.take(2).map((order) => _OrderCard(order: order, onTap: () => onOrderTap(order.id))),
-                      const SizedBox(height: 24),
                     ],
-                  );
-                },
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const SizedBox.shrink(),
-              ),
-
-              // Escrow Banner – polished
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [AppColors.primary, AppColors.primaryDark],
                   ),
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.25),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
                 ),
-                child: Row(
+                const SizedBox(height: 28),
+
+                // Recommended Commodities
+                Row(
                   children: [
                     Container(
-                      width: 48,
-                      height: 48,
+                      width: 4,
+                      height: 20,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: const Icon(Icons.shield_outlined, color: Colors.white, size: 26),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Pembayaran Aman',
-                            style: AppTextStyles.labelLarge.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Dana ditahan aman sampai pesanan diterima sesuai.',
-                            style: AppTextStyles.caption.copyWith(
-                              color: Colors.white.withValues(alpha: 0.8),
-                              height: 1.4,
-                            ),
-                          ),
-                        ],
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    Text('Komoditas Mendekati Panen', style: AppTextStyles.titleMedium),
                   ],
                 ),
-              ),
-              const SizedBox(height: 28),
-
-              // Recommended Commodities
-              Row(
-                children: [
-                  Container(
-                    width: 4,
-                    height: 20,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text('Komoditas Mendekati Panen', style: AppTextStyles.titleMedium),
-                ],
-              ),
-              const SizedBox(height: 12),
-              commodities.when(
-                data: (list) {
-                  final sorted = List<Commodity>.from(list)..sort((a, b) => a.estimatedHarvestDate.compareTo(b.estimatedHarvestDate));
-                  return Column(
-                    children: sorted.take(4).map((c) => _CommodityCard(commodity: c, onTap: () => onCommodityTap(c.id))).toList(),
-                  );
-                },
-                loading: () => const AppLoadingState(),
-                error: (_, __) => const Text('Gagal memuat komoditas'),
-              ),
-              const SizedBox(height: 32),
-            ],
+                const SizedBox(height: 12),
+                commodities.when(
+                  data: (list) {
+                    final sorted = List<Commodity>.from(list)..sort((a, b) => a.estimatedHarvestDate.compareTo(b.estimatedHarvestDate));
+                    return Column(
+                      children: sorted.take(4).map((c) => _CommodityCard(commodity: c, onTap: () => onCommodityTap(c.id))).toList(),
+                    );
+                  },
+                  loading: () => const AppLoadingState(),
+                  error: (_, __) => const Text('Gagal memuat komoditas'),
+                ),
+                const SizedBox(height: 32),
+              ],
+            ),
           ),
         ),
       ),
