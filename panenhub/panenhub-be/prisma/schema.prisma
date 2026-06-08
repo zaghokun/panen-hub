@@ -1,0 +1,423 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Role {
+  customer
+  farmer
+  admin
+}
+
+enum UserStatus {
+  active
+  inactive
+  blocked
+  pending_verification
+}
+
+enum VerificationStatus {
+  unverified
+  pending
+  verified
+  rejected
+}
+
+enum CommodityStatus {
+  active
+  inactive
+  disabled
+}
+
+enum OrderStatus {
+  waiting_payment
+  paid_escrow
+  pre_order_confirmed
+  harvesting
+  sorting_qc
+  shipped
+  delivered
+  completed
+  disputed
+  refunded
+  cancelled
+}
+
+enum EscrowStatus {
+  unpaid
+  held
+  released
+  refunded
+}
+
+enum PaymentMethod {
+  bank_transfer
+  virtual_account
+}
+
+enum PaymentStatus {
+  unpaid
+  paid
+  refunded
+}
+
+enum DisputeReason {
+  quality_issue
+  wrong_quantity
+  not_delivered
+  other
+}
+
+enum DisputeStatus {
+  submitted
+  under_review
+  resolved
+  closed
+}
+
+enum DisputeDecision {
+  approve_refund
+  partial_refund
+  reject
+  request_more_evidence
+}
+
+enum WithdrawalStatus {
+  requested
+  approved
+  paid
+  rejected
+}
+
+enum NotificationType {
+  order_paid
+  order_confirmed
+  order_status_updated
+  order_shipped
+  order_delivered
+  order_completed
+  dispute_submitted
+  dispute_decided
+  withdrawal_approved
+  withdrawal_rejected
+  farmer_verified
+  farmer_rejected
+}
+
+// ============================================================
+// USERS
+// ============================================================
+
+model User {
+  id          String     @id @default(uuid())
+  name        String
+  email       String     @unique
+  phone       String?
+  password    String
+  role        Role
+  status      UserStatus @default(active)
+  lastLoginAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  farmerProfile   FarmerProfile?
+  customerProfile CustomerProfile?
+
+  ordersAsCustomer     PreOrder[]           @relation("CustomerOrders")
+  disputesAsCustomer   Dispute[]            @relation("CustomerDisputes")
+  reviewsAsCustomer    Review[]             @relation("CustomerReviews")
+  ordersAsFarmer       PreOrder[]           @relation("FarmerOrders")
+  commodities          Commodity[]
+  disputesAsFarmer     Dispute[]            @relation("FarmerDisputes")
+  reviewsAsFarmer      Review[]             @relation("FarmerReviews")
+  withdrawals          Withdrawal[]
+  wallet               Wallet?
+  orderStatusHistories OrderStatusHistory[]
+  notifications        Notification[]
+
+  @@map("users")
+}
+
+// ============================================================
+// PROFILES
+// ============================================================
+
+model FarmerProfile {
+  id                 String             @id @default(uuid())
+  userId             String             @unique
+  farmName           String
+  landArea           Float
+  address            String
+  latitude           Float?
+  longitude          Float?
+  photoUrl           String?
+  verificationStatus VerificationStatus @default(pending)
+  verificationNotes  String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("farmer_profiles")
+}
+
+model CustomerProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  businessName    String
+  businessType    String
+  businessAddress String
+  picName         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("customer_profiles")
+}
+
+// ============================================================
+// COMMODITIES
+// ============================================================
+
+model Commodity {
+  id                   String          @id @default(uuid())
+  farmerId             String
+  name                 String
+  category             String
+  description          String?
+  pricePerKg           Int
+  availableQuotaKg     Float
+  estimatedHarvestDate DateTime
+  imageUrl             String?
+  location             String
+  status               CommodityStatus @default(active)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  farmer User       @relation(fields: [farmerId], references: [id])
+  orders PreOrder[]
+
+  @@map("commodities")
+}
+
+// ============================================================
+// PRE ORDERS
+// ============================================================
+
+model PreOrder {
+  id              String      @id @default(uuid())
+  customerId      String
+  farmerId        String
+  commodityId     String
+  quantityKg      Float
+  pricePerKg      Int
+  totalPrice      Int
+  deliveryDate    DateTime
+  deliveryAddress String
+  notes           String?
+  status          OrderStatus @default(waiting_payment)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  customer       User                 @relation("CustomerOrders", fields: [customerId], references: [id])
+  farmer         User                 @relation("FarmerOrders", fields: [farmerId], references: [id])
+  commodity      Commodity            @relation(fields: [commodityId], references: [id])
+  payment        Payment?
+  statusHistory  OrderStatusHistory[]
+  qualityControl QualityControl?
+  dispute        Dispute?
+  review         Review?
+
+  @@map("pre_orders")
+}
+
+// ============================================================
+// ORDER STATUS HISTORY
+// ============================================================
+
+model OrderStatusHistory {
+  id             String      @id @default(uuid())
+  orderId        String
+  status         OrderStatus
+  notes          String?
+  updatedById    String?
+  courierName    String?
+  trackingNumber String?
+  createdAt      DateTime    @default(now())
+
+  order     PreOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  updatedBy User?    @relation(fields: [updatedById], references: [id])
+
+  @@map("order_status_histories")
+}
+
+// ============================================================
+// PAYMENTS
+// ============================================================
+
+model Payment {
+  id               String        @id @default(uuid())
+  orderId          String        @unique
+  amount           Int
+  method           PaymentMethod @default(bank_transfer)
+  status           PaymentStatus @default(unpaid)
+  escrowStatus     EscrowStatus  @default(unpaid)
+  paymentReference String?
+  paidAt           DateTime?
+  releasedAt       DateTime?
+  refundedAt       DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  order PreOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+// ============================================================
+// QUALITY CONTROL
+// ============================================================
+
+model QualityControl {
+  id              String   @id @default(uuid())
+  orderId         String   @unique
+  conditionStatus String
+  quantityStatus  String
+  qualityNotes    String?
+  photoUrl        String?
+  submittedById   String
+  createdAt       DateTime @default(now())
+
+  order PreOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("quality_controls")
+}
+
+// ============================================================
+// DISPUTES
+// ============================================================
+
+model Dispute {
+  id                  String           @id @default(uuid())
+  orderId             String           @unique
+  customerId          String
+  farmerId            String
+  reason              DisputeReason
+  description         String
+  quantityProblematic Float?
+  status              DisputeStatus    @default(submitted)
+  adminDecision       DisputeDecision?
+  adminNotes          String?
+  refundAmount        Int?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  closedAt            DateTime?
+
+  order     PreOrder          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer  User              @relation("CustomerDisputes", fields: [customerId], references: [id])
+  farmer    User              @relation("FarmerDisputes", fields: [farmerId], references: [id])
+  evidences DisputeEvidence[]
+
+  @@map("disputes")
+}
+
+model DisputeEvidence {
+  id        String   @id @default(uuid())
+  disputeId String
+  fileUrl   String
+  fileType  String
+  createdAt DateTime @default(now())
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@map("dispute_evidences")
+}
+
+// ============================================================
+// REVIEWS
+// ============================================================
+
+model Review {
+  id             String   @id @default(uuid())
+  orderId        String   @unique
+  customerId     String
+  farmerId       String
+  rating         Int
+  qualityRating  Int?
+  deliveryRating Int?
+  comment        String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  order    PreOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer User     @relation("CustomerReviews", fields: [customerId], references: [id])
+  farmer   User     @relation("FarmerReviews", fields: [farmerId], references: [id])
+
+  @@map("reviews")
+}
+
+// ============================================================
+// WALLET
+// ============================================================
+
+model Wallet {
+  id               String   @id @default(uuid())
+  farmerId         String   @unique
+  balanceAvailable Int      @default(0)
+  balancePending   Int      @default(0)
+  totalEarned      Int      @default(0)
+  updatedAt        DateTime @updatedAt
+
+  farmer User @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+
+  @@map("wallets")
+}
+
+// ============================================================
+// WITHDRAWALS
+// ============================================================
+
+model Withdrawal {
+  id                String           @id @default(uuid())
+  farmerId          String
+  amount            Int
+  bankName          String
+  accountNumber     String
+  accountHolderName String
+  status            WithdrawalStatus @default(requested)
+  adminNotes        String?
+  requestedAt       DateTime         @default(now())
+  processedAt       DateTime?
+
+  farmer User @relation(fields: [farmerId], references: [id])
+
+  @@map("withdrawals")
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  data      Json?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
